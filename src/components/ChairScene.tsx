@@ -26,7 +26,7 @@ export const ChairScene: React.FC = () => {
   const [progress, setProgress] = useState<number>(0);
   const [isFullyAssembled, setIsFullyAssembled] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [finish, setFinish] = useState<FinishType>('teak');
+  const finish: FinishType = 'teak';
 
   const soundTriggersRef = useRef<{ [key: string]: boolean }>({
     legs: false,
@@ -54,21 +54,6 @@ export const ChairScene: React.FC = () => {
   const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isPointerDown = useRef<boolean>(false);
 
-  // Update materials when finish changes
-  useEffect(() => {
-    if (sceneRef.current) {
-      const newMat = getWoodMaterial(finish);
-      partsRef.current.forEach((part) => {
-        if (!part.name.includes('Pin')) {
-          part.mesh.traverse((child) => {
-            if (child instanceof THREE.Mesh && child !== shadowPlaneRef.current) {
-              child.material = newMat;
-            }
-          });
-        }
-      });
-    }
-  }, [finish]);
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -92,10 +77,10 @@ export const ChairScene: React.FC = () => {
         // Mobile portrait: pull back comfortably so chair is 100% visible
         camera.position.set(0, 0.2, (8.2 / currentAspect) * 0.72);
       } else {
-        // Desktop landscape: framed gracefully in lower-center
-        camera.position.set(0, 0.3, 6.5);
+        // Desktop landscape: framed heroically in center-lower for bigger presence
+        camera.position.set(0, 0.25, 5.9);
       }
-      camera.lookAt(0, -0.42, 0);
+      camera.lookAt(0, -0.38, 0);
       camera.updateProjectionMatrix();
     };
 
@@ -600,7 +585,7 @@ export const ChairScene: React.FC = () => {
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (!isFullyAssembled) return;
+    if (!isFullyAssembled || e.button !== 0) return;
     isPointerDown.current = true;
     setIsDragging(true);
     lastMousePos.current = { x: e.clientX, y: e.clientY };
@@ -612,8 +597,16 @@ export const ChairScene: React.FC = () => {
     const dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
 
-    dragRotation.current.vx = dx * 0.008;
-    dragRotation.current.vy = dy * 0.006;
+    if (e.pointerType === 'touch') {
+      // On mobile: only rotate horizontally if horizontal swipe dominates
+      // Never interfere with vertical swipe scrolling
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+        dragRotation.current.vx = dx * 0.008;
+      }
+    } else {
+      dragRotation.current.vx = dx * 0.008;
+      dragRotation.current.vy = dy * 0.006;
+    }
   };
 
   const handlePointerUp = () => {
@@ -628,7 +621,7 @@ export const ChairScene: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '320vh' }}
+      style={{ position: 'relative', width: '100%', height: '320vh', touchAction: 'pan-y' }}
     >
       {/* Pinned Fullscreen Studio Viewport */}
       <div
@@ -641,6 +634,7 @@ export const ChairScene: React.FC = () => {
           overflow: 'hidden',
           backgroundColor: '#F4EBDD',
           userSelect: 'none',
+          touchAction: 'pan-y',
         }}
       >
         {/* 
@@ -713,7 +707,8 @@ export const ChairScene: React.FC = () => {
 
         {/* 
           3. THE 3D CANVAS: CHAIR ASSEMBLES ON SCROLL
-          Centered in the lower-middle viewport safely below the text!
+          - touchAction: 'pan-y' allows vertical touch swipe scrolling over the chair on mobile!
+          - pointerEvents: 'none' during assembly so touch passes completely through to document scroll!
         */}
         <canvas
           ref={canvasRef}
@@ -724,51 +719,125 @@ export const ChairScene: React.FC = () => {
             width: '100%',
             height: '100%',
             display: 'block',
-            touchAction: 'none',
+            touchAction: 'pan-y',
             zIndex: 10,
             cursor: isDragging ? 'grabbing' : isFullyAssembled ? 'grab' : 'default',
+            pointerEvents: isFullyAssembled ? 'auto' : 'none',
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         />
 
         {/* 
           4. CENTER BELOW: TAGLINE + COLOR CONFIG SWATCHES + 360 CUE
           Strictly positioned at bottom center below the chair!
         */}
+        {/* 
+          4. CENTER BELOW: CREATIVE BRAND TAGLINE & INTERACTION CUE
+          Strictly solid teakwood, no color buttons, creative brand tagline
+        */}
+        {/* 
+          4. CENTER BELOW: CREATIVE BRAND TAGLINE & INTERACTION CUE
+          - Grand scale on desktop view (clamp up to 3.6rem / ~58px)
+          - Fixes period gap: "Together." seamlessly joined
+          - Bespoke architectural kicker and organic joinery stroke
+        */}
         <div
           style={{
             position: 'absolute',
-            bottom: '24px',
+            bottom: 'clamp(20px, 3.8vh, 38px)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 50,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '8px',
+            gap: 'clamp(10px, 1.6vh, 16px)',
             pointerEvents: 'auto',
-            width: '100%',
-            maxWidth: '400px',
+            width: '92%',
+            maxWidth: '860px',
             textAlign: 'center',
             padding: '0 16px',
           }}
         >
-          {/* Tagline below the chair */}
+          {/* Creative Brand Tagline Block */}
           <div
             style={{
-              fontFamily: "'Syne', sans-serif",
-              fontSize: 'clamp(0.72rem, 2.2vw, 0.88rem)',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: '#57524C',
-              fontWeight: 700,
-              opacity: 0.85,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            Furniture, coming together.
+            {/* Main Creative Headline */}
+            <h2
+              style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 'clamp(1.75rem, 4.4vw, 3.5rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.025em',
+                lineHeight: 1.1,
+                color: '#24211E',
+                margin: 0,
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                gap: '0.25em',
+              }}
+            >
+              <span>The Joy of</span>
+              <span
+                style={{
+                  fontFamily: "'Cormorant Garamond', Georgia, serif",
+                  fontStyle: 'italic',
+                  fontWeight: 600,
+                  color: '#C65F45',
+                  position: 'relative',
+                  display: 'inline-block',
+                  padding: '0 2px',
+                }}
+              >
+                Together
+                <span
+                  style={{
+                    fontFamily: "'Syne', sans-serif",
+                    fontStyle: 'normal',
+                    fontWeight: 800,
+                    color: '#C65F45',
+                    marginLeft: '1px',
+                  }}
+                >
+                  .
+                </span>
+                {/* Organic joinery terracotta swoosh underline */}
+                <svg
+                  viewBox="0 0 160 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{
+                    position: 'absolute',
+                    bottom: '-4px',
+                    left: '2px',
+                    width: 'calc(100% - 4px)',
+                    height: '9px',
+                    overflow: 'visible',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <path
+                    d="M 2 9 C 45 2.5, 115 2.5, 158 7"
+                    stroke="#C65F45"
+                    strokeWidth="2.8"
+                    strokeLinecap="round"
+                    opacity="0.9"
+                  />
+                </svg>
+              </span>
+            </h2>
           </div>
 
           {/* 360 drag cue or scroll indicator */}
@@ -777,19 +846,23 @@ export const ChairScene: React.FC = () => {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
                 backgroundColor: '#24211E',
                 color: '#F4EBDD',
-                padding: '4px 14px',
+                padding: '7px 20px',
                 borderRadius: '999px',
-                fontSize: '11px',
+                fontSize: 'clamp(11px, 0.95vw, 12px)',
                 fontFamily: "'Space Grotesk', monospace",
-                letterSpacing: '0.12em',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                letterSpacing: '0.14em',
+                fontWeight: 500,
+                boxShadow: '0 4px 16px rgba(36, 33, 30, 0.2)',
+                border: '1px solid rgba(198, 95, 69, 0.3)',
                 cursor: 'grab',
+                marginTop: '4px',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
               }}
             >
-              <Rotate3d style={{ width: '13px', height: '13px', color: '#C65F45' }} />
+              <Rotate3d style={{ width: '15px', height: '15px', color: '#C65F45' }} />
               <span>DRAG 360° TO INSPECT</span>
             </div>
           ) : (
@@ -799,92 +872,32 @@ export const ChairScene: React.FC = () => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 pointerEvents: 'none',
+                marginTop: '4px',
               }}
             >
               <span
                 style={{
                   fontFamily: "'Space Grotesk', monospace",
-                  fontSize: '9px',
-                  letterSpacing: '0.25em',
+                  fontSize: 'clamp(10px, 0.9vw, 11px)',
+                  letterSpacing: '0.26em',
                   textTransform: 'uppercase',
                   color: '#8E867E',
-                  marginBottom: '2px',
+                  fontWeight: 500,
+                  marginBottom: '4px',
                 }}
               >
-                SCROLL TO ASSEMBLE CHAIR
+                SCROLL TO ASSEMBLE
               </span>
               <div
                 style={{
-                  width: '1px',
-                  height: '14px',
+                  width: '1.5px',
+                  height: '18px',
                   background: 'linear-gradient(to bottom, #C65F45, transparent)',
+                  borderRadius: '2px',
                 }}
               />
             </div>
           )}
-
-          {/* Color Config Swatches centered below the chair */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              backgroundColor: 'rgba(250, 246, 240, 0.88)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              padding: '6px 14px',
-              borderRadius: '999px',
-              border: '1px solid rgba(36, 33, 30, 0.12)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-            }}
-          >
-            {(
-              [
-                { id: 'teak', label: 'Teak', color: '#9E5B37' },
-                { id: 'terracotta', label: 'Terracotta', color: '#C65F45' },
-                { id: 'sand', label: 'Sand Oak', color: '#D6C4AA' },
-                { id: 'charcoal', label: 'Charcoal', color: '#2B2824' },
-              ] as const
-            ).map((swatch) => (
-              <button
-                key={swatch.id}
-                onClick={() => {
-                  setFinish(swatch.id);
-                  soundEngine.playWoodTap(1.3, 0.12);
-                }}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  backgroundColor: swatch.color,
-                  border: finish === swatch.id ? '2px solid #C65F45' : '1px solid rgba(0,0,0,0.1)',
-                  outline: finish === swatch.id ? '2px solid rgba(198, 95, 69, 0.3)' : 'none',
-                  outlineOffset: '2px',
-                  transform: finish === swatch.id ? 'scale(1.15)' : 'scale(1)',
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title={`Finish: ${swatch.label}`}
-                aria-label={`Select ${swatch.label} finish`}
-              >
-                {finish === swatch.id && (
-                  <span
-                    style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      backgroundColor: '#FFFFFF',
-                      display: 'block',
-                    }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
         </div>
 
       </div>

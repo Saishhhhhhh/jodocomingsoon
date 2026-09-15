@@ -12,11 +12,11 @@ interface FinishColors {
 
 const FINISH_CONFIGS: Record<FinishType, FinishColors> = {
   teak: {
-    base: '#9E5B37',
-    grain1: '#6E381C',
-    grain2: '#532812',
-    highlight: '#B87348',
-    roughness: 0.42,
+    base: '#65381E',
+    grain1: '#43210F',
+    grain2: '#2B1307',
+    highlight: '#8A4E2B',
+    roughness: 0.28,
   },
   terracotta: {
     base: '#C65F45',
