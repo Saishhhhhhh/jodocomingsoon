@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ChairScene } from './components/ChairScene';
 
 export function App() {
+  useEffect(() => {
     let lenis: Lenis | null = null;
     let rafId: number;
 

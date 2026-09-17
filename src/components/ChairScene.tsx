@@ -39,7 +39,6 @@ export const ChairScene: React.FC = () => {
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const partsRef = useRef<ComponentPart[]>([]);
   const shadowPlaneRef = useRef<THREE.Mesh | null>(null);
   const chairGroupRef = useRef<THREE.Group | null>(null);
