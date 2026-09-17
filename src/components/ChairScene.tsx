@@ -85,14 +85,41 @@ export const ChairScene: React.FC = () => {
     };
 
     updateCameraDistance();
-    cameraRef.current = camera;
+    let renderer: THREE.WebGLRenderer | null = null;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance',
+      });
+    } catch {
+      try {
+        renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: true,
+          alpha: true,
+          powerPreference: 'default',
+        });
+      } catch {
+        try {
+          renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: false,
+            alpha: true,
+            powerPreference: 'default',
+            failIfMajorPerformanceCaveat: false,
+          });
+        } catch (err) {
+          console.warn('WebGL is not available in this environment:', err);
+        }
+      }
+    }
 
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-    });
+    if (!renderer) {
+      return;
+    }
+
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -541,9 +568,9 @@ export const ChairScene: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
-      scrollTrigger.kill();
-      renderer.dispose();
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (scrollTrigger) scrollTrigger.kill();
+      if (renderer) renderer.dispose();
       parts.forEach((p) => {
         p.mesh.traverse((c) => {
           if (c instanceof THREE.Mesh) c.geometry.dispose();

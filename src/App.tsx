@@ -4,28 +4,33 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ChairScene } from './components/ChairScene';
 
 export function App() {
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      smoothWheel: true,
-      touchMultiplier: 1.8,
-    });
-
-    lenis.on('scroll', ScrollTrigger.update);
-
+    let lenis: Lenis | null = null;
     let rafId: number;
-    function raf(time: number) {
-      lenis.raf(time);
+
+    try {
+      lenis = new Lenis({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: 'vertical',
+        smoothWheel: true,
+        touchMultiplier: 1.8,
+      });
+
+      lenis.on('scroll', ScrollTrigger.update);
+
+      function raf(time: number) {
+        lenis?.raf(time);
+        rafId = requestAnimationFrame(raf);
+      }
+
       rafId = requestAnimationFrame(raf);
+    } catch (e) {
+      console.warn('Lenis smooth scroll initialization warning:', e);
     }
 
-    rafId = requestAnimationFrame(raf);
-
     return () => {
-      cancelAnimationFrame(rafId);
-      lenis.destroy();
+      if (rafId) cancelAnimationFrame(rafId);
+      lenis?.destroy();
     };
   }, []);
 
