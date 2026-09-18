@@ -4,7 +4,6 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { soundEngine } from '../audio/woodSound';
 import { getWoodMaterial, getBrassMaterial, type FinishType } from '../textures/woodTexture';
-import { Rotate3d } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -774,14 +773,14 @@ export const ChairScene: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            bottom: 'clamp(20px, 3.8vh, 38px)',
+            bottom: 'clamp(14px, 2.5vh, 26px)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 50,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 'clamp(10px, 1.6vh, 16px)',
+            gap: '8px',
             pointerEvents: 'auto',
             width: '92%',
             maxWidth: '860px',
@@ -789,6 +788,43 @@ export const ChairScene: React.FC = () => {
             padding: '0 16px',
           }}
         >
+          {/* Subtle scroll cue only before scrolling starts (fades away as soon as user scrolls) */}
+          {!isFullyAssembled && progress < 0.15 && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                pointerEvents: 'none',
+                opacity: Math.max(0, 1 - progress / 0.12),
+                transition: 'opacity 0.25s ease-out',
+                marginBottom: '4px',
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "'Space Grotesk', monospace",
+                  fontSize: 'clamp(10px, 0.9vw, 11px)',
+                  letterSpacing: '0.26em',
+                  textTransform: 'uppercase',
+                  color: '#8E867E',
+                  fontWeight: 500,
+                  marginBottom: '4px',
+                }}
+              >
+                SCROLL TO ASSEMBLE
+              </span>
+              <div
+                style={{
+                  width: '1.5px',
+                  height: '14px',
+                  background: 'linear-gradient(to bottom, #C65F45, transparent)',
+                  borderRadius: '2px',
+                }}
+              />
+            </div>
+          )}
+
           {/* Creative Brand Tagline Block */}
           <div
             style={{
@@ -865,65 +901,6 @@ export const ChairScene: React.FC = () => {
               </span>
             </h2>
           </div>
-
-          {/* 360 drag cue or scroll indicator */}
-          {isFullyAssembled ? (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#24211E',
-                color: '#F4EBDD',
-                padding: '7px 20px',
-                borderRadius: '999px',
-                fontSize: 'clamp(11px, 0.95vw, 12px)',
-                fontFamily: "'Space Grotesk', monospace",
-                letterSpacing: '0.14em',
-                fontWeight: 500,
-                boxShadow: '0 4px 16px rgba(36, 33, 30, 0.2)',
-                border: '1px solid rgba(198, 95, 69, 0.3)',
-                cursor: 'grab',
-                marginTop: '4px',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-              }}
-            >
-              <Rotate3d style={{ width: '15px', height: '15px', color: '#C65F45' }} />
-              <span>DRAG 360° TO INSPECT</span>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                pointerEvents: 'none',
-                marginTop: '4px',
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "'Space Grotesk', monospace",
-                  fontSize: 'clamp(10px, 0.9vw, 11px)',
-                  letterSpacing: '0.26em',
-                  textTransform: 'uppercase',
-                  color: '#8E867E',
-                  fontWeight: 500,
-                  marginBottom: '4px',
-                }}
-              >
-                SCROLL TO ASSEMBLE
-              </span>
-              <div
-                style={{
-                  width: '1.5px',
-                  height: '18px',
-                  background: 'linear-gradient(to bottom, #C65F45, transparent)',
-                  borderRadius: '2px',
-                }}
-              />
-            </div>
-          )}
         </div>
 
       </div>
