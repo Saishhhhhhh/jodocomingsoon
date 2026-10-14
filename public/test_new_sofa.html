@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sofa Assembly Tester</title>
+  <style>
+    body { margin: 0; background: #F4EBDD; overflow: hidden; font-family: sans-serif; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      background: rgba(255,255,255,0.85);
+      padding: 10px 20px;
+      border-radius: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      background: #C65F45;
+      color: white;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="controls">
+    <button id="btn0">Scroll = 0 (Exploded)</button>
+    <button id="btn50">Scroll = 0.5 (Mid-Assembly)</button>
+    <button id="btn100">Scroll = 1.0 (Assembled)</button>
+  </div>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#F4EBDD');
+    scene.fog = new THREE.FogExp2('#F4EBDD', 0.030);
+
+    const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 50);
+    camera.position.set(0, 0.42, 5.8);
+    camera.lookAt(0, -0.12, 0);
+
+    // Studio Lighting
+    const amb = new THREE.AmbientLight('#FAF2E6', 1.15);
+    scene.add(amb);
+
+    const key = new THREE.DirectionalLight('#FFF5E8', 2.5);
+    key.position.set(-3.8, 5.8, 4.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.bias = -0.0004;
+    scene.add(key);
+
+    const fill = new THREE.DirectionalLight('#E0E8F2', 0.95);
+    fill.position.set(4.2, 2.8, -1.8);
+    scene.add(fill);
+
+    const rim = new THREE.DirectionalLight('#FFE8D6', 1.4);
+    rim.position.set(0, 4.5, -4.5);
+    scene.add(rim);
+
+    // Ground Studio Floor Shadow
+    const floorGeo = new THREE.PlaneGeometry(16, 16);
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 512;
+    shadowCanvas.height = 512;
+    const sCtx = shadowCanvas.getContext('2d');
+    if (sCtx) {
+      const grad = sCtx.createRadialGradient(256, 256, 30, 256, 256, 240);
+      grad.addColorStop(0, 'rgba(38, 30, 24, 0.46)');
+      grad.addColorStop(0.35, 'rgba(38, 30, 24, 0.28)');
+      grad.addColorStop(0.7, 'rgba(38, 30, 24, 0.08)');
+      grad.addColorStop(1, 'rgba(38, 30, 24, 0)');
+      sCtx.fillStyle = grad;
+      sCtx.fillRect(0, 0, 512, 512);
+    }
+    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+    const floorMat = new THREE.MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      opacity: 0.65,
+      depthWrite: false,
+    });
+    const shadowMesh = new THREE.Mesh(floorGeo, floorMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = -0.68;
+    shadowMesh.scale.set(1.5, 0.85, 1);
+    scene.add(shadowMesh);
+
+    // Procedural Velvet Boucle Texture
+    const createFabricTexture = () => {
+      const cv = document.createElement('canvas');
+      cv.width = 512;
+      cv.height = 512;
+      const ctx = cv.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#C65F45';
+        ctx.fillRect(0, 0, 512, 512);
+        
+        const idata = ctx.getImageData(0, 0, 512, 512);
+        const data = idata.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const noise = (Math.random() - 0.5) * 16;
+          data[i] = Math.min(255, Math.max(0, data[i] + noise));
+          data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise * 0.9));
+          data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise * 0.8));
+        }
+        ctx.putImageData(idata, 0, 0);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < 512; x += 4) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, 512);
+          ctx.stroke();
+        }
+        for (let y = 0; y < 512; y += 4) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(512, y);
+          ctx.stroke();
+        }
+      }
+      const tex = new THREE.CanvasTexture(cv);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(4, 4);
+      return tex;
+    };
+
+    const fabricTex = createFabricTexture();
+
+    // Terracotta Velvet Material
+    const velvetMat = new THREE.MeshStandardMaterial({
+      map: fabricTex,
+      color: new THREE.Color('#C65F45'),
+      roughness: 0.72,
+      metalness: 0.04,
+    });
+
+    const velvetAccentMat = new THREE.MeshStandardMaterial({
+      map: fabricTex,
+      color: new THREE.Color('#B8523A'),
+      roughness: 0.68,
+      metalness: 0.04,
+    });
+
+    const woodMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#6E4020'), // Warm Teak
+      roughness: 0.38,
+      metalness: 0.05,
+    });
+
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#D8B06B'),
+      metalness: 0.88,
+      roughness: 0.25,
+    });
+
+    // Helper: Puffy Cushion with organic loft
+    const createPuffyCushion = (w, h, d, loft = 0.05, segX = 28, segY = 16, segZ = 28) => {
+      const geo = new THREE.BoxGeometry(w, h, d, segX, segY, segZ);
+      const pos = geo.attributes.position;
+      const hw = w / 2;
+      const hh = h / 2;
+      const hd = d / 2;
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+
+        const nx = x / hw;
+        const ny = y / hh;
+        const nz = z / hd;
+
+        if (Math.abs(ny) > 0.65) {
+          const sign = Math.sign(ny);
+          pos.setY(i, y + sign * loft * (1 - nx * nx) * (1 - nz * nz));
+        }
+        if (Math.abs(nz) > 0.65) {
+          const sign = Math.sign(nz);
+          pos.setZ(i, z + sign * (loft * 0.75) * (1 - nx * nx) * (1 - ny * ny));
+        }
+        if (Math.abs(nx) > 0.65) {
+          const sign = Math.sign(nx);
+          pos.setX(i, x + sign * (loft * 0.45) * (1 - ny * ny) * (1 - nz * nz));
+        }
+      }
+
+      geo.computeVertexNormals();
+      return geo;
+    };
+
+    // Helper: Rounded Box
+    const createRoundedBox = (w, h, d, r = 0.035, s = 8) => {
+      const shape = new THREE.Shape();
+      const hw = w / 2 - r;
+      const hh = h / 2 - r;
+
+      shape.moveTo(-hw, -hh - r);
+      shape.lineTo(hw, -hh - r);
+      shape.absarc(hw, -hh, r, -Math.PI / 2, 0, false);
+      shape.lineTo(hw + r, hh);
+      shape.absarc(hw, hh, r, 0, Math.PI / 2, false);
+      shape.lineTo(-hw, hh + r);
+      shape.absarc(-hw, hh, r, Math.PI / 2, Math.PI, false);
+      shape.lineTo(-hw - r, -hh);
+      shape.absarc(-hw, -hh, r, Math.PI, Math.PI * 1.5, false);
+
+      const extGeo = new THREE.ExtrudeGeometry(shape, {
+        depth: d - r * 2,
+        bevelEnabled: true,
+        bevelSegments: s,
+        steps: 1,
+        bevelSize: r,
+        bevelThickness: r,
+      });
+      extGeo.center();
+      return extGeo;
+    };
+
+    // Helper: Precision Brass Alignment Pin
+    const createBrassPin = () => {
+      const pinGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.12, 16);
+      const mesh = new THREE.Mesh(pinGeo, brassMat);
+      mesh.castShadow = true;
+      return mesh;
+    };
+
+    const sofaGroup = new THREE.Group();
+    scene.add(sofaGroup);
+    sofaGroup.position.set(0, -0.08, 0);
+    sofaGroup.rotation.y = -0.08;
+
+    const parts = [];
+
+    // 1. Plinth Base
+    const plinthGeo = createRoundedBox(2.34, 0.07, 0.92, 0.03, 8);
+    const plinthMesh = new THREE.Mesh(plinthGeo, woodMat);
+    plinthMesh.castShadow = true;
+    plinthMesh.receiveShadow = true;
+    sofaGroup.add(plinthMesh);
+    parts.push({
+      mesh: plinthMesh,
+      name: 'Timber Plinth Chassis',
+      startPos: new THREE.Vector3(0, -0.85, -0.2),
+      endPos: new THREE.Vector3(0, -0.40, 0),
+      startRot: new THREE.Euler(0.15, 0.1, -0.05),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.0,
+      endProgress: 0.32,
+      noiseOffset: 0.2,
+    });
+
+    // 2. Legs (4 corner legs + 1 recessed center)
+    const legLength = 0.26;
+    const legData = [
+      { name: 'Front Left Leg', x: -0.98, z: 0.35, sPos: new THREE.Vector3(-1.45, -1.05, 0.65), sRot: new THREE.Euler(0.4, 0.3, 0.3), startP: 0.02, endP: 0.26 },
+      { name: 'Front Right Leg', x: 0.98, z: 0.35, sPos: new THREE.Vector3(1.45, -1.05, 0.65), sRot: new THREE.Euler(-0.4, -0.3, -0.3), startP: 0.04, endP: 0.28 },
+      { name: 'Rear Left Leg', x: -0.98, z: -0.35, sPos: new THREE.Vector3(-1.35, -0.85, -0.65), sRot: new THREE.Euler(-0.3, 0.4, 0.3), startP: 0.06, endP: 0.30 },
+      { name: 'Rear Right Leg', x: 0.98, z: -0.35, sPos: new THREE.Vector3(1.35, -0.85, -0.65), sRot: new THREE.Euler(0.3, -0.4, -0.3), startP: 0.08, endP: 0.32 },
+    ];
+
+    legData.forEach((ld) => {
+      const legGroup = new THREE.Group();
+      
+      const woodLegGeo = new THREE.CylinderGeometry(0.035, 0.022, legLength * 0.72, 16);
+      const woodLeg = new THREE.Mesh(woodLegGeo, woodMat);
+      woodLeg.position.y = legLength * 0.14;
+      woodLeg.castShadow = true;
+      legGroup.add(woodLeg);
+
+      const brassCapGeo = new THREE.CylinderGeometry(0.022, 0.016, legLength * 0.28, 16);
+      const brassCap = new THREE.Mesh(brassCapGeo, brassMat);
+      brassCap.position.y = -legLength * 0.36;
+      brassCap.castShadow = true;
+      legGroup.add(brassCap);
+
+      sofaGroup.add(legGroup);
+
+      const endRotZ = -Math.sign(ld.x) * 0.07;
+      const endRotX = Math.sign(ld.z) * 0.05;
+
+      parts.push({
+        mesh: legGroup,
+        name: ld.name,
+        startPos: ld.sPos,
+        endPos: new THREE.Vector3(ld.x, -0.53, ld.z),
+        startRot: ld.sRot,
+        endRot: new THREE.Euler(endRotX, 0, endRotZ),
+        startProgress: ld.startP,
+        endProgress: ld.endP,
+        noiseOffset: ld.x * 2,
+      });
+    });
+
+    // 3. Upholstered Deck Platform
+    const deckGeo = createRoundedBox(2.30, 0.12, 0.90, 0.035, 8);
+    const deckMesh = new THREE.Mesh(deckGeo, velvetAccentMat);
+    deckMesh.castShadow = true;
+    deckMesh.receiveShadow = true;
+    sofaGroup.add(deckMesh);
+    parts.push({
+      mesh: deckMesh,
+      name: 'Upholstered Deck Platform',
+      startPos: new THREE.Vector3(0, -0.55, 0.25),
+      endPos: new THREE.Vector3(0, -0.305, 0.01),
+      startRot: new THREE.Euler(-0.12, 0, 0),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.20,
+      endProgress: 0.45,
+      noiseOffset: 0.6,
+    });
+
+    // 4. Track Arms (Left & Right)
+    const armW = 0.20;
+    const armH = 0.38;
+    const armD = 0.90;
+
+    const armMeshL = new THREE.Mesh(createPuffyCushion(armW, armH, armD, 0.035, 16, 20, 24), velvetMat);
+    armMeshL.castShadow = true;
+    armMeshL.receiveShadow = true;
+    sofaGroup.add(armMeshL);
+    parts.push({
+      mesh: armMeshL,
+      name: 'Left Tailored Armrest',
+      startPos: new THREE.Vector3(-1.65, 0.15, 0.25),
+      endPos: new THREE.Vector3(-1.05, -0.06, 0.01),
+      startRot: new THREE.Euler(0.2, 0.3, -0.2),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.32,
+      endProgress: 0.58,
+      noiseOffset: 1.0,
+    });
+
+    const armMeshR = new THREE.Mesh(createPuffyCushion(armW, armH, armD, 0.035, 16, 20, 24), velvetMat);
+    armMeshR.castShadow = true;
+    armMeshR.receiveShadow = true;
+    sofaGroup.add(armMeshR);
+    parts.push({
+      mesh: armMeshR,
+      name: 'Right Tailored Armrest',
+      startPos: new THREE.Vector3(1.65, 0.15, 0.25),
+      endPos: new THREE.Vector3(1.05, -0.06, 0.01),
+      startRot: new THREE.Euler(0.2, -0.3, 0.2),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.34,
+      endProgress: 0.60,
+      noiseOffset: 1.4,
+    });
+
+    // 5. Upholstered Rear Backrest Chassis
+    const backChassisGeo = createRoundedBox(2.30, 0.54, 0.16, 0.04, 8);
+    const backChassisMesh = new THREE.Mesh(backChassisGeo, velvetAccentMat);
+    backChassisMesh.castShadow = true;
+    backChassisMesh.receiveShadow = true;
+    sofaGroup.add(backChassisMesh);
+    parts.push({
+      mesh: backChassisMesh,
+      name: 'Rear Structural Backrest',
+      startPos: new THREE.Vector3(0, 0.75, -0.85),
+      endPos: new THREE.Vector3(0, 0.04, -0.36),
+      startRot: new THREE.Euler(-0.25, 0, 0),
+      endRot: new THREE.Euler(-0.08, 0, 0),
+      startProgress: 0.40,
+      endProgress: 0.66,
+      noiseOffset: 1.8,
+    });
+
+    // 6. Three Deep Lounge Seat Cushions
+    const seatW = 0.63;
+    const seatH = 0.17;
+    const seatD = 0.70;
+    const seatXs = [-0.63, 0, 0.63];
+
+    seatXs.forEach((x, i) => {
+      const cushionMesh = new THREE.Mesh(createPuffyCushion(seatW, seatH, seatD, 0.045, 24, 16, 24), velvetMat);
+      cushionMesh.castShadow = true;
+      cushionMesh.receiveShadow = true;
+      sofaGroup.add(cushionMesh);
+
+      const sX = x * 1.5;
+      const sY = 0.85 + (i === 1 ? 0.2 : 0);
+      const sZ = 0.55;
+
+      parts.push({
+        mesh: cushionMesh,
+        name: `Seat Cushion ${i + 1}`,
+        startPos: new THREE.Vector3(sX, sY, sZ),
+        endPos: new THREE.Vector3(x, -0.16, 0.08),
+        startRot: new THREE.Euler(0.3, (i - 1) * 0.25, 0),
+        endRot: new THREE.Euler(0, 0, 0),
+        startProgress: 0.50 + i * 0.06,
+        endProgress: 0.74 + i * 0.06,
+        noiseOffset: 2.2 + i * 0.4,
+      });
+    });
+
+    // 7. Three Tall Plush Pillow-Back Cushions
+    const backW = 0.63;
+    const backH = 0.44;
+    const backD = 0.20;
+
+    seatXs.forEach((x, i) => {
+      const pillowMesh = new THREE.Mesh(createPuffyCushion(backW, backH, backD, 0.05, 24, 20, 16), velvetMat);
+      pillowMesh.castShadow = true;
+      pillowMesh.receiveShadow = true;
+      sofaGroup.add(pillowMesh);
+
+      const sX = x * 1.35;
+      const sY = 1.15 + (i === 1 ? 0.25 : 0);
+      const sZ = -0.45;
+
+      const endRotY = (i === 0 ? 0.03 : i === 2 ? -0.03 : 0);
+
+      parts.push({
+        mesh: pillowMesh,
+        name: `Back Pillow ${i + 1}`,
+        startPos: new THREE.Vector3(sX, sY, sZ),
+        endPos: new THREE.Vector3(x, 0.14, -0.24),
+        startRot: new THREE.Euler(-0.4, (i - 1) * 0.3, 0),
+        endRot: new THREE.Euler(-0.18, endRotY, 0),
+        startProgress: 0.62 + i * 0.05,
+        endProgress: 0.84 + i * 0.05,
+        noiseOffset: 3.0 + i * 0.4,
+      });
+    });
+
+    // 8. Two Luxury Throw Pillows
+    const throwGeo = createPuffyCushion(0.36, 0.36, 0.14, 0.05, 20, 20, 16);
+    
+    const throwL = new THREE.Mesh(throwGeo, velvetAccentMat);
+    throwL.castShadow = true;
+    sofaGroup.add(throwL);
+    parts.push({
+      mesh: throwL,
+      name: 'Left Accent Throw Pillow',
+      startPos: new THREE.Vector3(-1.35, 0.55, 0.75),
+      endPos: new THREE.Vector3(-0.84, -0.06, 0.06),
+      startRot: new THREE.Euler(0.4, 0.8, -0.3),
+      endRot: new THREE.Euler(0.12, 0.52, -0.20),
+      startProgress: 0.72,
+      endProgress: 0.92,
+      noiseOffset: 4.2,
+    });
+
+    const throwR = new THREE.Mesh(throwGeo, velvetAccentMat);
+    throwR.castShadow = true;
+    sofaGroup.add(throwR);
+    parts.push({
+      mesh: throwR,
+      name: 'Right Accent Throw Pillow',
+      startPos: new THREE.Vector3(1.35, 0.55, 0.75),
+      endPos: new THREE.Vector3(0.84, -0.06, 0.06),
+      startRot: new THREE.Euler(0.4, -0.8, 0.3),
+      endRot: new THREE.Euler(0.12, -0.52, 0.20),
+      startProgress: 0.74,
+      endProgress: 0.94,
+      noiseOffset: 4.6,
+    });
+
+    // 9. Precision Brass Connection Dowels
+    const pinPositions = [
+      { name: 'Arm Pin Left Front', pos: new THREE.Vector3(-0.95, -0.15, 0.25) },
+      { name: 'Arm Pin Left Rear', pos: new THREE.Vector3(-0.95, -0.15, -0.25) },
+      { name: 'Arm Pin Right Front', pos: new THREE.Vector3(0.95, -0.15, 0.25) },
+      { name: 'Arm Pin Right Rear', pos: new THREE.Vector3(0.95, -0.15, -0.25) },
+    ];
+
+    pinPositions.forEach((pp, i) => {
+      const pinMesh = createBrassPin();
+      sofaGroup.add(pinMesh);
+      const sX = pp.pos.x * 1.4;
+      const sY = pp.pos.y + 0.5;
+      const sZ = pp.pos.z * 1.3;
+
+      parts.push({
+        mesh: pinMesh,
+        name: pp.name,
+        startPos: new THREE.Vector3(sX, sY, sZ),
+        endPos: pp.pos.clone(),
+        startRot: new THREE.Euler(0.6, 0.4, 0.2),
+        endRot: new THREE.Euler(0, 0, 0),
+        startProgress: 0.28 + i * 0.03,
+        endProgress: 0.48 + i * 0.03,
+        noiseOffset: 5.0 + i * 0.3,
+      });
+    });
+
+    // Update progress function
+    let currentProgress = 0;
+    window.setProgress = (p) => {
+      currentProgress = p;
+      parts.forEach((part) => {
+        const localT = Math.max(0, Math.min(1, (p - part.startProgress) / (part.endProgress - part.startProgress)));
+        // Smooth cubic easeInOut
+        const easeT = localT < 0.5 ? 4 * localT * localT * localT : 1 - Math.pow(-2 * localT + 2, 3) / 2;
+
+        part.mesh.position.lerpVectors(part.startPos, part.endPos, easeT);
+        
+        part.mesh.rotation.x = THREE.MathUtils.lerp(part.startRot.x, part.endRot.x, easeT);
+        part.mesh.rotation.y = THREE.MathUtils.lerp(part.startRot.y, part.endRot.y, easeT);
+        part.mesh.rotation.z = THREE.MathUtils.lerp(part.startRot.z, part.endRot.z, easeT);
+      });
+
+      // Shadow opacity scales as assembly reaches completion
+      floorMat.opacity = THREE.MathUtils.lerp(0.18, 0.65, Math.min(1, p * 1.2));
+    };
+
+    // Button event listeners
+    document.getElementById('btn0').onclick = () => window.setProgress(0);
+    document.getElementById('btn50').onclick = () => window.setProgress(0.5);
+    document.getElementById('btn100').onclick = () => window.setProgress(1.0);
+
+    // Initial state: 0 (Exploded)
+    window.setProgress(0);
+    window.isReady = true;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

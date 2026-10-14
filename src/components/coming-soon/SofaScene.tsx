@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
@@ -33,9 +33,12 @@ export const SofaScene: React.FC = () => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const soundTriggersRef = useRef<{ [key: string]: boolean }>({
+    chassis: false,
     legs: false,
-    feet: false,
-    body: false,
+    deck: false,
+    arms: false,
+    backrest: false,
+    cushions: false,
     pillows: false,
     complete: false,
   });
@@ -47,9 +50,9 @@ export const SofaScene: React.FC = () => {
   const sofaGroupRef = useRef<THREE.Group | null>(null);
   const shadowPlaneRef = useRef<THREE.Mesh | null>(null);
 
-  // Heroic front 3/4 perspective angles
-  const BASE_ROT_Y = 0.32;
-  const BASE_ROT_X = 0.08;
+  // Elegant initial 3/4 beauty angle to showcase tailored curves and depth
+  const BASE_ROT_Y = -0.14;
+  const BASE_ROT_X = 0.04;
 
   // Turntable drag state
   const dragRotation = useRef<{ vx: number; vy: number; currentY: number; currentX: number }>({
@@ -72,23 +75,23 @@ export const SofaScene: React.FC = () => {
     // 1. Scene Setup
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.fog = new THREE.FogExp2('#F4EBDD', 0.025);
+    scene.fog = new THREE.FogExp2('#F4EBDD', 0.026);
 
     // Responsive Camera Setup
     const aspect = canvas.clientWidth / canvas.clientHeight;
-    const camera = new THREE.PerspectiveCamera(34, aspect, 0.1, 50);
+    const camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 50);
 
     const updateCameraDistance = () => {
       const currentAspect = canvas.clientWidth / canvas.clientHeight;
       camera.aspect = currentAspect;
       if (currentAspect < 1) {
-        // Mobile portrait: framed so floating parts fit comfortably with margins
-        camera.position.set(0, 0.38, (7.4 / currentAspect) * 0.64);
-        camera.lookAt(0, -0.15, 0);
+        // Mobile portrait: framed so full 2.42m sofa and floating parts fit comfortably with margins
+        camera.position.set(0, 0.32, 4.6 / currentAspect);
+        camera.lookAt(0, -0.10, 0);
       } else {
-        // Desktop landscape: centered view framing all parts in air and assembled
-        camera.position.set(0, 0.40, 5.8);
-        camera.lookAt(0, -0.15, 0);
+        // Desktop landscape: centered framing with generous clearance below COMING SOON
+        camera.position.set(0, 0.38, 5.8);
+        camera.lookAt(0, -0.10, 0);
       }
       camera.updateProjectionMatrix();
     };
@@ -105,56 +108,57 @@ export const SofaScene: React.FC = () => {
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
     rendererRef.current = renderer;
 
-    // 2. Studio Lighting (Warm Key, Cool Fill, Back Rim)
-    const ambientLight = new THREE.AmbientLight('#FAF3E8', 1.15);
+    // 2. Warm Architectural Studio Lighting
+    const ambientLight = new THREE.AmbientLight('#FAF2E6', 1.25);
     scene.add(ambientLight);
 
     const keyLight = new THREE.DirectionalLight('#FFF5E8', 2.6);
-    keyLight.position.set(5.0, 7.0, 4.5);
+    keyLight.position.set(-4.0, 6.0, 4.5);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 1024;
-    keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
     keyLight.shadow.bias = -0.0004;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight('#E0EDF8', 0.95);
-    fillLight.position.set(-5.0, 4.0, 3.0);
+    const fillLight = new THREE.DirectionalLight('#E0EDF8', 1.05);
+    fillLight.position.set(4.5, 3.0, -1.8);
     scene.add(fillLight);
 
-    const rimLight = new THREE.DirectionalLight('#FFD6BA', 1.5);
-    rimLight.position.set(0, 5.0, -4.5);
+    const rimLight = new THREE.DirectionalLight('#FFE8D6', 1.5);
+    rimLight.position.set(0, 4.5, -4.5);
     scene.add(rimLight);
 
     // 3. Ground Studio Floor Contact Shadow
-    const floorGeo = new THREE.PlaneGeometry(30, 20);
+    const floorGeo = new THREE.PlaneGeometry(18, 18);
     const shadowCanvas = document.createElement('canvas');
-    shadowCanvas.width = 1024;
+    shadowCanvas.width = 512;
     shadowCanvas.height = 512;
     const sCtx = shadowCanvas.getContext('2d');
     if (sCtx) {
-      const grad = sCtx.createRadialGradient(512, 256, 40, 512, 256, 480);
-      grad.addColorStop(0, 'rgba(36, 33, 30, 0.44)');
-      grad.addColorStop(0.35, 'rgba(36, 33, 30, 0.20)');
-      grad.addColorStop(0.68, 'rgba(36, 33, 30, 0.05)');
-      grad.addColorStop(1, 'rgba(36, 33, 30, 0)');
+      const grad = sCtx.createRadialGradient(256, 256, 30, 256, 256, 240);
+      grad.addColorStop(0, 'rgba(40, 32, 26, 0.48)');
+      grad.addColorStop(0.35, 'rgba(40, 32, 26, 0.28)');
+      grad.addColorStop(0.70, 'rgba(40, 32, 26, 0.08)');
+      grad.addColorStop(1, 'rgba(40, 32, 26, 0)');
       sCtx.fillStyle = grad;
-      sCtx.fillRect(0, 0, 1024, 512);
+      sCtx.fillRect(0, 0, 512, 512);
     }
     const shadowTex = new THREE.CanvasTexture(shadowCanvas);
     const shadowMat = new THREE.MeshBasicMaterial({
       map: shadowTex,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.18,
       depthWrite: false,
     });
     const shadowPlane = new THREE.Mesh(floorGeo, shadowMat);
     shadowPlane.rotation.x = -Math.PI / 2;
-    shadowPlane.position.y = -1.25;
+    shadowPlane.position.y = -0.68;
+    shadowPlane.scale.set(1.5, 0.85, 1);
     shadowPlane.receiveShadow = true;
     scene.add(shadowPlane);
     shadowPlaneRef.current = shadowPlane;
@@ -164,22 +168,15 @@ export const SofaScene: React.FC = () => {
     scene.add(sofaGroup);
     sofaGroupRef.current = sofaGroup;
 
-    // Position sofa in optical center with generous headline clearance
-    sofaGroup.position.set(0, -0.26, 0);
+    sofaGroup.position.set(0, -0.08, 0);
     sofaGroup.rotation.y = BASE_ROT_Y;
     sofaGroup.rotation.x = BASE_ROT_X;
-    // Scale 1.40 gives a majestic 3.1-meter wide designer sofa presence
-    sofaGroup.scale.setScalar(1.40);
-
-    // Inner Model Group centered at geometric center
-    const sofaModelGroup = new THREE.Group();
-    sofaGroup.add(sofaModelGroup);
 
     // 5. Materials
-    const woodMat = getWoodMaterial('teak');
     const brassMat = getBrassMaterial();
+    const darkWoodMat = getWoodMaterial('teak');
 
-    // Signature JODO Terracotta woven upholstery texture
+    // Signature JODO Terracotta woven bouclé upholstery texture
     const fabricCanvas = document.createElement('canvas');
     fabricCanvas.width = 512;
     fabricCanvas.height = 512;
@@ -187,840 +184,722 @@ export const SofaScene: React.FC = () => {
     if (fCtx) {
       fCtx.fillStyle = '#C65F45'; // Signature JODO Terracotta
       fCtx.fillRect(0, 0, 512, 512);
+
+      const idata = fCtx.getImageData(0, 0, 512, 512);
+      const data = idata.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 16;
+        data[i] = Math.min(255, Math.max(0, data[i] + noise));
+        data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise * 0.9));
+        data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise * 0.8));
+      }
+      fCtx.putImageData(idata, 0, 0);
+
+      // Fine bouclé weave micro-threads
+      fCtx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      fCtx.lineWidth = 1;
       for (let x = 0; x < 512; x += 4) {
-        for (let y = 0; y < 512; y += 4) {
-          const isWeft = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 === 0;
-          fCtx.fillStyle = isWeft ? '#BA553D' : '#D26B52';
-          fCtx.fillRect(x, y, 3.5, 3.5);
-        }
+        fCtx.beginPath();
+        fCtx.moveTo(x, 0);
+        fCtx.lineTo(x, 512);
+        fCtx.stroke();
+      }
+      for (let y = 0; y < 512; y += 4) {
+        fCtx.beginPath();
+        fCtx.moveTo(0, y);
+        fCtx.lineTo(512, y);
+        fCtx.stroke();
       }
     }
     const fabricTex = new THREE.CanvasTexture(fabricCanvas);
     fabricTex.wrapS = THREE.RepeatWrapping;
     fabricTex.wrapT = THREE.RepeatWrapping;
-    fabricTex.repeat.set(6, 6);
+    fabricTex.repeat.set(4, 4);
 
-    const terracottaCushionMat = new THREE.MeshPhysicalMaterial({
+    // High-end Terracotta Velvet with rich sheen & softness
+    const velvetMat = new THREE.MeshPhysicalMaterial({
+      map: fabricTex,
       color: new THREE.Color('#C65F45'),
-      map: fabricTex,
-      roughness: 0.72,
-      metalness: 0.04,
+      roughness: 0.62,
+      metalness: 0.03,
       sheen: 0.95,
-      sheenColor: new THREE.Color('#E27D65'),
-      sheenRoughness: 0.45,
+      sheenColor: new THREE.Color('#E5836B'),
+      sheenRoughness: 0.38,
     });
 
-    const pillowMat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color('#CE6A52'),
+    const velvetAccentMat = new THREE.MeshPhysicalMaterial({
       map: fabricTex,
-      roughness: 0.65,
-      metalness: 0.04,
+      color: new THREE.Color('#BA523B'),
+      roughness: 0.58,
+      metalness: 0.03,
       sheen: 1.0,
-      sheenColor: new THREE.Color('#F0937A'),
-      sheenRoughness: 0.40,
+      sheenColor: new THREE.Color('#EC8D75'),
+      sheenRoughness: 0.35,
     });
 
-    // Helper: Create a plush rounded upholstered cushion with rounded bevels and optional center tufting
-    const createPlushCushion = (
+    // Helper: Sculpted Organic Cloud Cushion with smooth welded vertices
+    const createCloudCushion = (
       w: number,
-      d: number,
       h: number,
-      r: number,
-      mat: THREE.Material,
-      hasTufting = true
-    ): THREE.Group => {
-      const group = new THREE.Group();
+      d: number,
+      loft = 0.06,
+      segX = 32,
+      segY = 18,
+      segZ = 32
+    ) => {
+      let geo: THREE.BufferGeometry = new THREE.BoxGeometry(w, h, d, segX, segY, segZ);
+      geo = mergeVertices(geo, 0.001); // Weld vertices for 100% silky smooth normals!
+      const pos = geo.attributes.position;
+      const hw = w / 2;
+      const hh = h / 2;
+      const hd = d / 2;
 
-      const shape = new THREE.Shape();
-      shape.moveTo(-w / 2 + r, -d / 2);
-      shape.lineTo(w / 2 - r, -d / 2);
-      shape.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
-      shape.lineTo(w / 2, d / 2 - r);
-      shape.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2);
-      shape.lineTo(-w / 2 + r, d / 2);
-      shape.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r);
-      shape.lineTo(-w / 2, -d / 2 + r);
-      shape.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
 
-      const geo = new THREE.ExtrudeGeometry(shape, {
-        depth: h,
-        bevelEnabled: true,
-        bevelSegments: 5,
-        steps: 1,
-        bevelSize: 0.042,
-        bevelThickness: 0.042,
-      });
-      geo.center();
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
+        const nx = Math.max(-1, Math.min(1, x / hw));
+        const ny = Math.max(-1, Math.min(1, y / hh));
+        const nz = Math.max(-1, Math.min(1, z / hd));
 
-      // Subtle tufting buttons for high-end tailoring
-      if (hasTufting) {
-        const buttonGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.01, 16);
-        const buttonMat = new THREE.MeshStandardMaterial({
-          color: '#A23F28',
-          roughness: 0.5,
-        });
-        [-w * 0.22, w * 0.22].forEach((bx) => {
-          const btnTop = new THREE.Mesh(buttonGeo, buttonMat);
-          btnTop.position.set(bx, 0, h / 2 + 0.04);
-          btnTop.rotation.x = Math.PI / 2;
-          group.add(btnTop);
-        });
+        // Organic crowning on top and bottom
+        if (Math.abs(ny) > 0.55) {
+          const sign = Math.sign(ny);
+          pos.setY(i, y + sign * loft * (1 - nx * nx) * (1 - nz * nz * 0.9));
+        }
+
+        // Waterfall forward curve on front (+z)
+        if (nz > 0.45) {
+          const frontFactor = (nz - 0.45) / 0.55;
+          pos.setZ(i, z + loft * 0.75 * (1 - nx * nx) * Math.cos(ny * Math.PI * 0.5));
+          if (ny > 0) {
+            pos.setY(i, y - loft * 0.28 * frontFactor * (1 - nx * nx));
+          }
+        }
+
+        // Soft bulge on outer side faces
+        if (Math.abs(nx) > 0.60) {
+          const sign = Math.sign(nx);
+          pos.setX(i, x + sign * (loft * 0.4) * (1 - ny * ny) * (1 - nz * nz));
+        }
       }
 
-      return group;
+      geo.computeVertexNormals();
+      return geo;
     };
 
-    // Helper: Turned tapered leg with gleaming brushed brass ferrule
-    const createLegWithBrass = (length: number, topR: number, botR: number): THREE.Group => {
-      const group = new THREE.Group();
-      const ferruleH = 0.052;
-      const woodH = length - ferruleH;
-      const midR = botR + (topR - botR) * (ferruleH / length);
+    // Helper: Sculpted Curved Track Armrest with smooth welded vertices
+    const createSculptedArmrest = (w: number, h: number, d: number, isLeft = true) => {
+      let geo: THREE.BufferGeometry = new THREE.BoxGeometry(w, h, d, 24, 24, 28);
+      geo = mergeVertices(geo, 0.001);
+      const pos = geo.attributes.position;
+      const hw = w / 2;
+      const hh = h / 2;
+      const hd = d / 2;
 
-      const woodGeo = new THREE.CylinderGeometry(topR, midR, woodH, 24);
-      woodGeo.translate(0, ferruleH / 2, 0);
-      const woodMesh = new THREE.Mesh(woodGeo, woodMat);
-      woodMesh.castShadow = true;
-      woodMesh.receiveShadow = true;
-      group.add(woodMesh);
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
 
-      const brassGeo = new THREE.CylinderGeometry(midR * 1.02, botR, ferruleH, 24);
-      brassGeo.translate(0, -woodH / 2, 0);
-      const brassMesh = new THREE.Mesh(brassGeo, brassMat);
-      brassMesh.castShadow = true;
-      group.add(brassMesh);
+        const nx = Math.max(-1, Math.min(1, x / hw));
+        const ny = Math.max(-1, Math.min(1, y / hh));
+        const nz = Math.max(-1, Math.min(1, z / hd));
 
-      return group;
+        if (ny > 0.45) {
+          const outerSign = isLeft ? -1 : 1;
+          const outerDist = Math.max(0, nx * outerSign);
+          pos.setY(i, y - outerDist * 0.045 * (1 - nz * nz * 0.5));
+          pos.setY(i, pos.getY(i) + 0.035 * (1 - nx * nx) * (1 - nz * nz));
+        }
+
+        if (nz > 0.55) {
+          pos.setZ(i, z + 0.04 * (1 - nx * nx) * (1 - ny * ny));
+        }
+
+        const sideSign = isLeft ? -1 : 1;
+        if (nx * sideSign > 0.55) {
+          pos.setX(i, x + sideSign * 0.035 * (1 - ny * ny) * (1 - nz * nz));
+        }
+      }
+
+      geo.computeVertexNormals();
+      return geo;
     };
 
-    // Helper: Brass joinery pin
-    const createBrassPin = (): THREE.Mesh => {
-      const geo = new THREE.CylinderGeometry(0.013, 0.013, 0.08, 16);
-      const mesh = new THREE.Mesh(geo, brassMat);
+    // Helper: Rounded Box with smooth beveled corners
+    const createRoundedBox = (w: number, h: number, d: number, r = 0.04, s = 8) => {
+      const shape = new THREE.Shape();
+      const hw = w / 2 - r;
+      const hh = h / 2 - r;
+
+      shape.moveTo(-hw, -hh - r);
+      shape.lineTo(hw, -hh - r);
+      shape.absarc(hw, -hh, r, -Math.PI / 2, 0, false);
+      shape.lineTo(hw + r, hh);
+      shape.absarc(hw, hh, r, 0, Math.PI / 2, false);
+      shape.lineTo(-hw, hh + r);
+      shape.absarc(-hw, hh, r, Math.PI / 2, Math.PI, false);
+      shape.lineTo(-hw - r, -hh);
+      shape.absarc(-hw, -hh, r, Math.PI, Math.PI * 1.5, false);
+
+      const extGeo = new THREE.ExtrudeGeometry(shape, {
+        depth: d - r * 2,
+        bevelEnabled: true,
+        bevelSegments: s,
+        steps: 1,
+        bevelSize: r,
+        bevelThickness: r,
+      });
+      extGeo.center();
+      return extGeo;
+    };
+
+    // Helper: Precision Brass Alignment Pin
+    const createBrassPin = () => {
+      const pinGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.12, 16);
+      const mesh = new THREE.Mesh(pinGeo, brassMat);
       mesh.castShadow = true;
       return mesh;
     };
 
     const parts: ComponentPart[] = [];
 
-    // ─────────────────────────────────────────────────────────────
-    // PART 1: CHASSIS & SPLAYED LEGS (Ground Platform)
-    // ─────────────────────────────────────────────────────────────
-    const chassisGroup = new THREE.Group();
-    sofaModelGroup.add(chassisGroup);
+    // ================= ELEGANT DESIGNER SOFA COMPONENTS =================
+    // Total Dimensions: Width 2.42m, Depth 0.98m, Height 0.74m
+    // Generous, low-slung, ultra-luxurious Italian deep-lounge proportions
 
-    // Front & rear rails
-    const frontRailGeo = new THREE.BoxGeometry(2.26, 0.058, 0.055);
-    const frontRail = new THREE.Mesh(frontRailGeo, woodMat);
-    frontRail.position.set(0, -0.04, 0.36);
-    frontRail.castShadow = true;
-    frontRail.receiveShadow = true;
-    chassisGroup.add(frontRail);
-
-    const rearRailGeo = new THREE.BoxGeometry(2.26, 0.058, 0.055);
-    const rearRail = new THREE.Mesh(rearRailGeo, woodMat);
-    rearRail.position.set(0, -0.04, -0.36);
-    rearRail.castShadow = true;
-    rearRail.receiveShadow = true;
-    chassisGroup.add(rearRail);
-
-    // Left, center, and right stretchers
-    const crossRailGeo = new THREE.BoxGeometry(0.055, 0.058, 0.67);
-    [-1.10, 0, 1.10].forEach((x) => {
-      const cross = new THREE.Mesh(crossRailGeo, woodMat);
-      cross.position.set(x, -0.04, 0);
-      cross.castShadow = true;
-      cross.receiveShadow = true;
-      chassisGroup.add(cross);
-    });
-
-    // 10 solid wood seat deck slats
-    const slatGeo = new THREE.BoxGeometry(0.052, 0.018, 0.67);
-    for (let i = 0; i < 10; i++) {
-      const sx = -0.92 + i * 0.205;
-      const slat = new THREE.Mesh(slatGeo, woodMat);
-      slat.position.set(sx, -0.01, 0);
-      slat.castShadow = true;
-      slat.receiveShadow = true;
-      chassisGroup.add(slat);
-    }
-
-    // 4 Splayed Turned Legs with Solid Brass Ferrules
-    const legLength = 0.28;
-    const legTopR = 0.038;
-    const legBotR = 0.024;
-
-    const flLeg = createLegWithBrass(legLength, legTopR, legBotR);
-    flLeg.position.set(-1.02, -0.19, 0.30);
-    flLeg.rotation.set(0.06, 0, 0.08);
-    chassisGroup.add(flLeg);
-
-    const frLeg = createLegWithBrass(legLength, legTopR, legBotR);
-    frLeg.position.set(1.02, -0.19, 0.30);
-    frLeg.rotation.set(0.06, 0, -0.08);
-    chassisGroup.add(frLeg);
-
-    const rlLeg = createLegWithBrass(legLength, legTopR, legBotR);
-    rlLeg.position.set(-1.02, -0.19, -0.30);
-    rlLeg.rotation.set(-0.08, 0, 0.08);
-    chassisGroup.add(rlLeg);
-
-    const rrLeg = createLegWithBrass(legLength, legTopR, legBotR);
-    rrLeg.position.set(1.02, -0.19, -0.30);
-    rrLeg.rotation.set(-0.08, 0, -0.08);
-    chassisGroup.add(rrLeg);
-
-    // 2 Center support legs for authentic furniture engineering
-    const clLeg = createLegWithBrass(legLength, 0.032, 0.022);
-    clLeg.position.set(0, -0.19, 0.30);
-    clLeg.rotation.set(0.04, 0, 0);
-    chassisGroup.add(clLeg);
-
-    const crLeg = createLegWithBrass(legLength, 0.032, 0.022);
-    crLeg.position.set(0, -0.19, -0.30);
-    crLeg.rotation.set(-0.04, 0, 0);
-    chassisGroup.add(crLeg);
-
+    // 1. SLEEK FLOATING PLINTH BASE WITH BRUSHED BRASS REVEAL
+    const plinthW = 2.38;
+    const plinthD = 0.94;
+    const plinthH = 0.055;
+    const plinthGeo = createRoundedBox(plinthW, plinthH, plinthD, 0.025, 8);
+    const plinthMesh = new THREE.Mesh(plinthGeo, darkWoodMat);
+    plinthMesh.castShadow = true;
+    plinthMesh.receiveShadow = true;
+    sofaGroup.add(plinthMesh);
     parts.push({
-      mesh: chassisGroup,
-      name: 'Solid Teak Chassis & Turned Legs',
-      startPos: new THREE.Vector3(0, -0.22, 0.0),
-      endPos: new THREE.Vector3(0, 0, 0),
-      startRot: new THREE.Euler(0.04, -0.02, 0.01),
+      mesh: plinthMesh,
+      name: 'Timber Plinth Chassis',
+      startPos: new THREE.Vector3(0, -0.78, -0.10),
+      endPos: new THREE.Vector3(0, -0.42, 0),
+      startRot: new THREE.Euler(0.15, 0.08, -0.04),
       endRot: new THREE.Euler(0, 0, 0),
       startProgress: 0.0,
       endProgress: 0.28,
       noiseOffset: 0.2,
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // PART 2: LEFT SCULPTURAL BENTWOOD ARMREST
-    // ─────────────────────────────────────────────────────────────
-    const leftArmGroup = new THREE.Group();
-    sofaModelGroup.add(leftArmGroup);
-
-    // Front post
-    const leftFrontPostGeo = new THREE.CylinderGeometry(0.036, 0.034, 0.48, 24);
-    const leftFrontPost = new THREE.Mesh(leftFrontPostGeo, woodMat);
-    leftFrontPost.position.set(-1.12, 0.20, 0.36);
-    leftFrontPost.castShadow = true;
-    leftArmGroup.add(leftFrontPost);
-
-    // Rear post
-    const leftRearPostGeo = new THREE.CylinderGeometry(0.038, 0.036, 0.58, 24);
-    const leftRearPost = new THREE.Mesh(leftRearPostGeo, woodMat);
-    leftRearPost.position.set(-1.12, 0.25, -0.36);
-    leftRearPost.castShadow = true;
-    leftArmGroup.add(leftRearPost);
-
-    // Silky curved arm rail with bullnose rounded contour
-    const armShape = new THREE.Shape();
-    armShape.moveTo(-0.032, -0.38);
-    armShape.lineTo(0.032, -0.38);
-    armShape.lineTo(0.032, 0.38);
-    armShape.quadraticCurveTo(0.032, 0.42, 0, 0.42);
-    armShape.quadraticCurveTo(-0.032, 0.42, -0.032, 0.38);
-    armShape.lineTo(-0.032, -0.38);
-
-    const armExtrudeSettings = {
-      depth: 0.045,
-      bevelEnabled: true,
-      bevelSegments: 4,
-      bevelSize: 0.016,
-      bevelThickness: 0.016,
-    };
-    const armGeo = new THREE.ExtrudeGeometry(armShape, armExtrudeSettings);
-    armGeo.center();
-    const leftArmRail = new THREE.Mesh(armGeo, woodMat);
-    leftArmRail.rotation.x = Math.PI / 2;
-    leftArmRail.position.set(-1.12, 0.45, 0.01);
-    leftArmRail.castShadow = true;
-    leftArmGroup.add(leftArmRail);
-
+    // Architectural Brushed Brass Reveal Trim
+    const brassTrimGeo = createRoundedBox(plinthW + 0.015, 0.014, plinthD + 0.015, 0.02, 6);
+    const brassTrim = new THREE.Mesh(brassTrimGeo, brassMat);
+    brassTrim.castShadow = true;
+    sofaGroup.add(brassTrim);
     parts.push({
-      mesh: leftArmGroup,
-      name: 'Left Sculptural Bentwood Armrest',
-      startPos: new THREE.Vector3(-0.45, 0.22, 0.06),
-      endPos: new THREE.Vector3(0, 0, 0),
-      startRot: new THREE.Euler(0.06, 0.12, -0.10),
+      mesh: brassTrim,
+      name: 'Brushed Brass Reveal Trim',
+      startPos: new THREE.Vector3(0, -0.72, -0.05),
+      endPos: new THREE.Vector3(0, -0.39, 0),
+      startRot: new THREE.Euler(0.12, 0.05, -0.03),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.04,
+      endProgress: 0.30,
+      noiseOffset: 0.4,
+    });
+
+    // 4 Architectural Brass Stiletto Feet
+    const legLength = 0.22;
+    const legData = [
+      {
+        name: 'Front Left Leg',
+        x: -1.02,
+        z: 0.38,
+        sPos: new THREE.Vector3(-1.38, -0.96, 0.60),
+        sRot: new THREE.Euler(0.35, 0.25, 0.3),
+        startP: 0.02,
+        endP: 0.26,
+      },
+      {
+        name: 'Front Right Leg',
+        x: 1.02,
+        z: 0.38,
+        sPos: new THREE.Vector3(1.38, -0.96, 0.60),
+        sRot: new THREE.Euler(-0.35, -0.25, -0.3),
+        startP: 0.04,
+        endP: 0.28,
+      },
+      {
+        name: 'Rear Left Leg',
+        x: -1.02,
+        z: -0.38,
+        sPos: new THREE.Vector3(-1.30, -0.82, -0.60),
+        sRot: new THREE.Euler(-0.3, 0.35, 0.3),
+        startP: 0.06,
+        endP: 0.30,
+      },
+      {
+        name: 'Rear Right Leg',
+        x: 1.02,
+        z: -0.38,
+        sPos: new THREE.Vector3(1.30, -0.82, -0.60),
+        sRot: new THREE.Euler(0.3, -0.35, -0.3),
+        startP: 0.08,
+        endP: 0.32,
+      },
+    ];
+
+    legData.forEach((ld) => {
+      const legGroup = new THREE.Group();
+
+      const legGeo = new THREE.CylinderGeometry(0.026, 0.016, legLength, 20);
+      const legMesh = new THREE.Mesh(legGeo, brassMat);
+      legMesh.castShadow = true;
+      legGroup.add(legMesh);
+
+      sofaGroup.add(legGroup);
+
+      const endRotZ = -Math.sign(ld.x) * 0.08;
+      const endRotX = Math.sign(ld.z) * 0.06;
+
+      parts.push({
+        mesh: legGroup,
+        name: ld.name,
+        startPos: ld.sPos,
+        endPos: new THREE.Vector3(ld.x, -0.52, ld.z),
+        startRot: ld.sRot,
+        endRot: new THREE.Euler(endRotX, 0, endRotZ),
+        startProgress: ld.startP,
+        endProgress: ld.endP,
+        noiseOffset: ld.x * 2,
+      });
+    });
+
+    // 2. CONTINUOUS UPHOLSTERED DECK PLATFORM
+    const deckGeo = createRoundedBox(2.36, 0.12, 0.92, 0.04, 8);
+    const deckMesh = new THREE.Mesh(deckGeo, velvetMat);
+    deckMesh.castShadow = true;
+    deckMesh.receiveShadow = true;
+    sofaGroup.add(deckMesh);
+    parts.push({
+      mesh: deckMesh,
+      name: 'Upholstered Deck Platform',
+      startPos: new THREE.Vector3(0, -0.50, 0.18),
+      endPos: new THREE.Vector3(0, -0.315, 0.01),
+      startRot: new THREE.Euler(-0.10, 0, 0),
       endRot: new THREE.Euler(0, 0, 0),
       startProgress: 0.16,
-      endProgress: 0.44,
-      noiseOffset: 0.5,
+      endProgress: 0.40,
+      noiseOffset: 0.6,
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // PART 3: RIGHT SCULPTURAL BENTWOOD ARMREST
-    // ─────────────────────────────────────────────────────────────
-    const rightArmGroup = new THREE.Group();
-    sofaModelGroup.add(rightArmGroup);
+    // 3. SCULPTED LOW-PROFILE TRACK ARMS (Left & Right)
+    const armW = 0.24;
+    const armH = 0.40;
+    const armD = 0.94;
 
-    const rightFrontPost = new THREE.Mesh(leftFrontPostGeo, woodMat);
-    rightFrontPost.position.set(1.12, 0.20, 0.36);
-    rightFrontPost.castShadow = true;
-    rightArmGroup.add(rightFrontPost);
-
-    const rightRearPost = new THREE.Mesh(leftRearPostGeo, woodMat);
-    rightRearPost.position.set(1.12, 0.25, -0.36);
-    rightRearPost.castShadow = true;
-    rightArmGroup.add(rightRearPost);
-
-    const rightArmRail = new THREE.Mesh(armGeo, woodMat);
-    rightArmRail.rotation.x = Math.PI / 2;
-    rightArmRail.position.set(1.12, 0.45, 0.01);
-    rightArmRail.castShadow = true;
-    rightArmGroup.add(rightArmRail);
-
+    const armMeshL = new THREE.Mesh(createSculptedArmrest(armW, armH, armD, true), velvetMat);
+    armMeshL.castShadow = true;
+    armMeshL.receiveShadow = true;
+    sofaGroup.add(armMeshL);
     parts.push({
-      mesh: rightArmGroup,
-      name: 'Right Sculptural Bentwood Armrest',
-      startPos: new THREE.Vector3(0.45, 0.22, 0.06),
-      endPos: new THREE.Vector3(0, 0, 0),
-      startRot: new THREE.Euler(0.06, -0.12, 0.10),
+      mesh: armMeshL,
+      name: 'Left Sculpted Track Arm',
+      startPos: new THREE.Vector3(-1.75, 0.12, 0.15),
+      endPos: new THREE.Vector3(-1.06, -0.05, 0.01),
+      startRot: new THREE.Euler(0.2, 0.3, -0.18),
       endRot: new THREE.Euler(0, 0, 0),
-      startProgress: 0.18,
-      endProgress: 0.46,
-      noiseOffset: 0.8,
+      startProgress: 0.28,
+      endProgress: 0.54,
+      noiseOffset: 1.0,
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // PART 4: ARCHITECTURAL BACKREST FRAME & SPINDLES
-    // ─────────────────────────────────────────────────────────────
-    const backrestGroup = new THREE.Group();
-    sofaModelGroup.add(backrestGroup);
-
-    // Sweeping top crest rail with gentle curve and rounded ends
-    const crestRailGeo = new THREE.BoxGeometry(2.26, 0.055, 0.042);
-    const crestRail = new THREE.Mesh(crestRailGeo, woodMat);
-    crestRail.position.set(0, 0.54, -0.38);
-    crestRail.castShadow = true;
-    backrestGroup.add(crestRail);
-
-    // 16 slender turned vertical wood spindles
-    const spindleGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.54, 16);
-    for (let i = 0; i < 16; i++) {
-      const sx = -1.02 + i * 0.136;
-      const spindle = new THREE.Mesh(spindleGeo, woodMat);
-      spindle.position.set(sx, 0.25, -0.37);
-      spindle.castShadow = true;
-      backrestGroup.add(spindle);
-    }
-
-    // Apply ergonomic 10-degree recline
-    backrestGroup.rotation.x = 0.17;
-    backrestGroup.position.set(0, 0.04, 0.04);
-
+    const armMeshR = new THREE.Mesh(createSculptedArmrest(armW, armH, armD, false), velvetMat);
+    armMeshR.castShadow = true;
+    armMeshR.receiveShadow = true;
+    sofaGroup.add(armMeshR);
     parts.push({
-      mesh: backrestGroup,
-      name: 'Bentwood Crest Rail & Slatted Spindles',
-      startPos: new THREE.Vector3(0, 0.48, -0.32),
-      endPos: new THREE.Vector3(0, 0.04, 0.04),
-      startRot: new THREE.Euler(0.35, 0, 0),
-      endRot: new THREE.Euler(0.17, 0, 0),
-      startProgress: 0.32,
-      endProgress: 0.58,
-      noiseOffset: 1.2,
-    });
-
-    // ─────────────────────────────────────────────────────────────
-    // PART 5: SOLID BRASS JOINERY PINS (Floating craft fasteners)
-    // ─────────────────────────────────────────────────────────────
-    const brassPinsGroup = new THREE.Group();
-    sofaModelGroup.add(brassPinsGroup);
-
-    // Front arm joinery pins
-    const flPin = createBrassPin();
-    flPin.rotation.z = Math.PI / 2;
-    flPin.position.set(-1.18, 0.42, 0.36);
-    brassPinsGroup.add(flPin);
-
-    const frPin = createBrassPin();
-    frPin.rotation.z = Math.PI / 2;
-    frPin.position.set(1.18, 0.42, 0.36);
-    brassPinsGroup.add(frPin);
-
-    // Rear arm joinery pins
-    const rlPin = createBrassPin();
-    rlPin.rotation.z = Math.PI / 2;
-    rlPin.position.set(-1.18, 0.45, -0.36);
-    brassPinsGroup.add(rlPin);
-
-    const rrPin = createBrassPin();
-    rrPin.rotation.z = Math.PI / 2;
-    rrPin.position.set(1.18, 0.45, -0.36);
-    brassPinsGroup.add(rrPin);
-
-    parts.push({
-      mesh: brassPinsGroup,
-      name: 'Architectural Brushed Brass Joinery Pins',
-      startPos: new THREE.Vector3(0, 0.18, 0.16),
-      endPos: new THREE.Vector3(0, 0, 0),
-      startRot: new THREE.Euler(0.1, 0, 0.05),
+      mesh: armMeshR,
+      name: 'Right Sculpted Track Arm',
+      startPos: new THREE.Vector3(1.75, 0.12, 0.15),
+      endPos: new THREE.Vector3(1.06, -0.05, 0.01),
+      startRot: new THREE.Euler(0.2, -0.3, 0.18),
       endRot: new THREE.Euler(0, 0, 0),
-      startProgress: 0.22,
-      endProgress: 0.48,
-      noiseOffset: 1.5,
+      startProgress: 0.30,
+      endProgress: 0.56,
+      noiseOffset: 1.4,
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // PARTS 6, 7, 8: THREE PLUSH TERRACOTTA SEAT CUSHIONS
-    // ─────────────────────────────────────────────────────────────
-    const cushionW = 0.70;
-    const cushionD = 0.68;
-    const cushionH = 0.13;
-    const cushionR = 0.07;
-
-    // Left Seat Cushion
-    const leftSeatGroup = createPlushCushion(cushionW, cushionD, cushionH, cushionR, terracottaCushionMat);
-    leftSeatGroup.rotation.x = Math.PI / 2;
-    leftSeatGroup.position.set(-0.73, 0.08, 0.02);
-    sofaModelGroup.add(leftSeatGroup);
-
+    // 4. CURVED UPHOLSTERED REAR BACKREST CHASSIS
+    const backChassisGeo = createRoundedBox(2.36, 0.52, 0.18, 0.06, 8);
+    const backChassisMesh = new THREE.Mesh(backChassisGeo, velvetMat);
+    backChassisMesh.castShadow = true;
+    backChassisMesh.receiveShadow = true;
+    sofaGroup.add(backChassisMesh);
     parts.push({
-      mesh: leftSeatGroup,
-      name: 'Left Terracotta Seat Cushion',
-      startPos: new THREE.Vector3(-0.75, 0.48, 0.18),
-      endPos: new THREE.Vector3(-0.73, 0.08, 0.02),
-      startRot: new THREE.Euler(Math.PI / 2 - 0.14, 0.06, -0.04),
-      endRot: new THREE.Euler(Math.PI / 2, 0, 0),
-      startProgress: 0.44,
-      endProgress: 0.70,
+      mesh: backChassisMesh,
+      name: 'Rear Structural Backrest',
+      startPos: new THREE.Vector3(0, 0.48, -0.70),
+      endPos: new THREE.Vector3(0, 0.04, -0.38),
+      startRot: new THREE.Euler(-0.22, 0, 0),
+      endRot: new THREE.Euler(-0.08, 0, 0),
+      startProgress: 0.36,
+      endProgress: 0.62,
       noiseOffset: 1.8,
     });
 
-    // Center Seat Cushion
-    const centerSeatGroup = createPlushCushion(cushionW, cushionD, cushionH, cushionR, terracottaCushionMat);
-    centerSeatGroup.rotation.x = Math.PI / 2;
-    centerSeatGroup.position.set(0, 0.08, 0.02);
-    sofaModelGroup.add(centerSeatGroup);
+    // 5. DUAL ULTRA-DEEP CLOUD SEAT CUSHIONS (Wide, plush 2-seater deep lounge)
+    const seatW = 0.93;
+    const seatH = 0.18;
+    const seatD = 0.74;
 
+    const seatMeshL = new THREE.Mesh(createCloudCushion(seatW, seatH, seatD, 0.055, 32, 18, 32), velvetMat);
+    seatMeshL.castShadow = true;
+    seatMeshL.receiveShadow = true;
+    sofaGroup.add(seatMeshL);
     parts.push({
-      mesh: centerSeatGroup,
-      name: 'Center Terracotta Seat Cushion',
-      startPos: new THREE.Vector3(0, 0.54, 0.22),
-      endPos: new THREE.Vector3(0, 0.08, 0.02),
-      startRot: new THREE.Euler(Math.PI / 2 - 0.16, 0, 0),
-      endRot: new THREE.Euler(Math.PI / 2, 0, 0),
+      mesh: seatMeshL,
+      name: 'Left Deep Cloud Seat Cushion',
+      startPos: new THREE.Vector3(-0.72, 0.52, 0.45),
+      endPos: new THREE.Vector3(-0.475, -0.16, 0.09),
+      startRot: new THREE.Euler(0.25, -0.15, 0),
+      endRot: new THREE.Euler(0, 0, 0),
       startProgress: 0.46,
-      endProgress: 0.72,
-      noiseOffset: 2.1,
+      endProgress: 0.70,
+      noiseOffset: 2.2,
     });
 
-    // Right Seat Cushion
-    const rightSeatGroup = createPlushCushion(cushionW, cushionD, cushionH, cushionR, terracottaCushionMat);
-    rightSeatGroup.rotation.x = Math.PI / 2;
-    rightSeatGroup.position.set(0.73, 0.08, 0.02);
-    sofaModelGroup.add(rightSeatGroup);
-
+    const seatMeshR = new THREE.Mesh(createCloudCushion(seatW, seatH, seatD, 0.055, 32, 18, 32), velvetMat);
+    seatMeshR.castShadow = true;
+    seatMeshR.receiveShadow = true;
+    sofaGroup.add(seatMeshR);
     parts.push({
-      mesh: rightSeatGroup,
-      name: 'Right Terracotta Seat Cushion',
-      startPos: new THREE.Vector3(0.75, 0.48, 0.18),
-      endPos: new THREE.Vector3(0.73, 0.08, 0.02),
-      startRot: new THREE.Euler(Math.PI / 2 - 0.14, -0.06, 0.04),
-      endRot: new THREE.Euler(Math.PI / 2, 0, 0),
-      startProgress: 0.48,
+      mesh: seatMeshR,
+      name: 'Right Deep Cloud Seat Cushion',
+      startPos: new THREE.Vector3(0.72, 0.52, 0.45),
+      endPos: new THREE.Vector3(0.475, -0.16, 0.09),
+      startRot: new THREE.Euler(0.25, 0.15, 0),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.50,
       endProgress: 0.74,
-      noiseOffset: 2.4,
+      noiseOffset: 2.6,
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // PARTS 9, 10, 11: THREE ERGONOMIC TERRACOTTA BACKREST CUSHIONS
-    // ─────────────────────────────────────────────────────────────
-    const backW = 0.69;
-    const backH = 0.42;
-    const backDepth = 0.12;
-    const backR = 0.06;
+    // 6. DUAL TALL PLUSH CLOUD BACKREST PILLOWS
+    const backW = 0.93;
+    const backH = 0.46;
+    const backD = 0.22;
 
-    // Left Back Cushion
-    const leftBackGroup = createPlushCushion(backW, backH, backDepth, backR, terracottaCushionMat);
-    leftBackGroup.position.set(-0.73, 0.38, -0.22);
-    leftBackGroup.rotation.x = 0.18;
-    sofaModelGroup.add(leftBackGroup);
-
+    const backPillowL = new THREE.Mesh(createCloudCushion(backW, backH, backD, 0.065, 32, 22, 20), velvetMat);
+    backPillowL.castShadow = true;
+    backPillowL.receiveShadow = true;
+    sofaGroup.add(backPillowL);
     parts.push({
-      mesh: leftBackGroup,
-      name: 'Left Terracotta Backrest Cushion',
-      startPos: new THREE.Vector3(-0.74, 0.82, -0.12),
-      endPos: new THREE.Vector3(-0.73, 0.38, -0.22),
-      startRot: new THREE.Euler(0.38, 0.08, -0.04),
-      endRot: new THREE.Euler(0.18, 0, 0),
+      mesh: backPillowL,
+      name: 'Left Plush Cloud Back Pillow',
+      startPos: new THREE.Vector3(-0.68, 0.82, -0.35),
+      endPos: new THREE.Vector3(-0.475, 0.14, -0.24),
+      startRot: new THREE.Euler(-0.35, -0.15, 0),
+      endRot: new THREE.Euler(-0.18, 0.025, 0),
       startProgress: 0.58,
       endProgress: 0.80,
-      noiseOffset: 2.7,
-    });
-
-    // Center Back Cushion
-    const centerBackGroup = createPlushCushion(backW, backH, backDepth, backR, terracottaCushionMat);
-    centerBackGroup.position.set(0, 0.38, -0.22);
-    centerBackGroup.rotation.x = 0.18;
-    sofaModelGroup.add(centerBackGroup);
-
-    parts.push({
-      mesh: centerBackGroup,
-      name: 'Center Terracotta Backrest Cushion',
-      startPos: new THREE.Vector3(0, 0.88, -0.15),
-      endPos: new THREE.Vector3(0, 0.38, -0.22),
-      startRot: new THREE.Euler(0.40, 0, 0),
-      endRot: new THREE.Euler(0.18, 0, 0),
-      startProgress: 0.60,
-      endProgress: 0.82,
       noiseOffset: 3.0,
     });
 
-    // Right Back Cushion
-    const rightBackGroup = createPlushCushion(backW, backH, backDepth, backR, terracottaCushionMat);
-    rightBackGroup.position.set(0.73, 0.38, -0.22);
-    rightBackGroup.rotation.x = 0.18;
-    sofaModelGroup.add(rightBackGroup);
-
+    const backPillowR = new THREE.Mesh(createCloudCushion(backW, backH, backD, 0.065, 32, 22, 20), velvetMat);
+    backPillowR.castShadow = true;
+    backPillowR.receiveShadow = true;
+    sofaGroup.add(backPillowR);
     parts.push({
-      mesh: rightBackGroup,
-      name: 'Right Terracotta Backrest Cushion',
-      startPos: new THREE.Vector3(0.74, 0.82, -0.12),
-      endPos: new THREE.Vector3(0.73, 0.38, -0.22),
-      startRot: new THREE.Euler(0.38, -0.08, 0.04),
-      endRot: new THREE.Euler(0.18, 0, 0),
+      mesh: backPillowR,
+      name: 'Right Plush Cloud Back Pillow',
+      startPos: new THREE.Vector3(0.68, 0.82, -0.35),
+      endPos: new THREE.Vector3(0.475, 0.14, -0.24),
+      startRot: new THREE.Euler(-0.35, 0.15, 0),
+      endRot: new THREE.Euler(-0.18, -0.025, 0),
       startProgress: 0.62,
       endProgress: 0.84,
-      noiseOffset: 3.3,
+      noiseOffset: 3.4,
     });
 
-    // ─────────────────────────────────────────────────────────────
-    // PARTS 12 & 13: TWO PLUMP ACCENT THROW PILLOWS
-    // ─────────────────────────────────────────────────────────────
-    const pillowSize = 0.32;
-    const pillowDepth = 0.08;
+    // 7. TWO DESIGNER ACCENT LUMBAR / THROW PILLOWS
+    const throwGeo = createCloudCushion(0.38, 0.38, 0.15, 0.06, 22, 22, 18);
 
-    // Left Pillow
-    const leftPillowGroup = createPlushCushion(pillowSize, pillowSize, pillowDepth, 0.06, pillowMat, false);
-    leftPillowGroup.position.set(-0.86, 0.22, 0.12);
-    leftPillowGroup.rotation.set(0.14, 0.44, -0.16);
-    sofaModelGroup.add(leftPillowGroup);
-
+    const throwL = new THREE.Mesh(throwGeo, velvetAccentMat);
+    throwL.castShadow = true;
+    sofaGroup.add(throwL);
     parts.push({
-      mesh: leftPillowGroup,
+      mesh: throwL,
       name: 'Left Accent Throw Pillow',
-      startPos: new THREE.Vector3(-1.05, 1.05, 0.18),
-      endPos: new THREE.Vector3(-0.86, 0.22, 0.12),
-      startRot: new THREE.Euler(0.45, 0.65, -0.32),
-      endRot: new THREE.Euler(0.14, 0.44, -0.16),
-      startProgress: 0.70,
-      endProgress: 0.85,
-      noiseOffset: 3.6,
+      startPos: new THREE.Vector3(-1.32, 0.42, 0.70),
+      endPos: new THREE.Vector3(-0.82, -0.05, 0.08),
+      startRot: new THREE.Euler(0.35, 0.8, -0.25),
+      endRot: new THREE.Euler(0.12, 0.55, -0.22),
+      startProgress: 0.68,
+      endProgress: 0.88,
+      noiseOffset: 4.2,
     });
 
-    // Right Pillow
-    const rightPillowGroup = createPlushCushion(pillowSize, pillowSize, pillowDepth, 0.06, pillowMat, false);
-    rightPillowGroup.position.set(0.86, 0.22, 0.12);
-    rightPillowGroup.rotation.set(0.14, -0.44, 0.16);
-    sofaModelGroup.add(rightPillowGroup);
-
+    const throwR = new THREE.Mesh(throwGeo, velvetAccentMat);
+    throwR.castShadow = true;
+    sofaGroup.add(throwR);
     parts.push({
-      mesh: rightPillowGroup,
+      mesh: throwR,
       name: 'Right Accent Throw Pillow',
-      startPos: new THREE.Vector3(1.05, 1.05, 0.18),
-      endPos: new THREE.Vector3(0.86, 0.22, 0.12),
-      startRot: new THREE.Euler(0.45, -0.65, 0.32),
-      endRot: new THREE.Euler(0.14, -0.44, 0.16),
-      startProgress: 0.72,
-      endProgress: 0.85,
-      noiseOffset: 3.9,
+      startPos: new THREE.Vector3(1.32, 0.42, 0.70),
+      endPos: new THREE.Vector3(0.82, -0.05, 0.08),
+      startRot: new THREE.Euler(0.35, -0.8, 0.25),
+      endRot: new THREE.Euler(0.12, -0.55, 0.22),
+      startProgress: 0.70,
+      endProgress: 0.90,
+      noiseOffset: 4.6,
     });
 
-    // Immediately position every part at its air-suspended start position
-    parts.forEach((p) => {
-      p.mesh.position.copy(p.startPos);
-      p.mesh.rotation.copy(p.startRot);
-    });
+    // 8. PRECISION BRASS CONNECTION DOWELS ("Built in Minutes")
+    const pinPositions = [
+      { name: 'Arm Pin Left Front', pos: new THREE.Vector3(-0.95, -0.15, 0.25) },
+      { name: 'Arm Pin Left Rear', pos: new THREE.Vector3(-0.95, -0.15, -0.25) },
+      { name: 'Arm Pin Right Front', pos: new THREE.Vector3(0.95, -0.15, 0.25) },
+      { name: 'Arm Pin Right Rear', pos: new THREE.Vector3(0.95, -0.15, -0.25) },
+    ];
 
-    console.log('JODO SOFA ASSEMBLED! Total components:', parts.length);
-    if (typeof window !== 'undefined') {
-      (window as any).__SOFA_SCENE__ = { scene, camera, sofaGroup, parts };
-    }
+    pinPositions.forEach((pp, i) => {
+      const pinMesh = createBrassPin();
+      sofaGroup.add(pinMesh);
+      const sX = pp.pos.x * 1.35;
+      const sY = pp.pos.y + 0.42;
+      const sZ = pp.pos.z * 1.25;
+
+      parts.push({
+        mesh: pinMesh,
+        name: pp.name,
+        startPos: new THREE.Vector3(sX, sY, sZ),
+        endPos: pp.pos.clone(),
+        startRot: new THREE.Euler(0.6, 0.4, 0.2),
+        endRot: new THREE.Euler(0, 0, 0),
+        startProgress: 0.22 + i * 0.03,
+        endProgress: 0.44 + i * 0.03,
+        noiseOffset: 5.0 + i * 0.3,
+      });
+    });
 
     partsRef.current = parts;
 
-    // 6. Setup Lenis Smooth Scroll
-    let lenis: Lenis | null = null;
-    let updateLenis: ((time: number) => void) | null = null;
-    try {
-      lenis = new Lenis({
-        duration: 1.25,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        orientation: 'vertical',
-        smoothWheel: true,
-        touchMultiplier: 1.8,
-      });
+    // Apply initial floating exploded layout at start
+    parts.forEach((part) => {
+      part.mesh.position.copy(part.startPos);
+      part.mesh.rotation.copy(part.startRot);
+    });
 
-      lenis.on('scroll', ScrollTrigger.update);
+    // 6. Lenis Smooth Scroll Setup
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      smoothWheel: true,
+      touchMultiplier: 2,
+    });
 
-      updateLenis = (time: number) => {
-        lenis?.raf(time * 1000);
-      };
-      gsap.ticker.add(updateLenis);
-      gsap.ticker.lagSmoothing(0);
-    } catch {
-      // Fallback
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
     }
+    const rafId = requestAnimationFrame(raf);
 
-    // Scroll progress handler with sound triggers
-    const handleScrollProgress = (p: number) => {
-      setProgress(p);
-      if (!soundEngine.enabled && p > 0.04) {
-        soundEngine.enabled = true;
-      }
-
-      // Sound triggers on milestone arrivals
-      if (p >= 0.28 && !soundTriggersRef.current.legs) {
-        soundTriggersRef.current.legs = true;
-        soundEngine.playWoodTap(1.15, 0.2);
-      } else if (p < 0.28) {
-        soundTriggersRef.current.legs = false;
-      }
-
-      if (p >= 0.38 && !soundTriggersRef.current.feet) {
-        soundTriggersRef.current.feet = true;
-        soundEngine.playBrassLock(0.12);
-      } else if (p < 0.38) {
-        soundTriggersRef.current.feet = false;
-      }
-
-      if (p >= 0.65 && !soundTriggersRef.current.body) {
-        soundTriggersRef.current.body = true;
-        soundEngine.playWoodTap(0.75, 0.28); // Deep resonant cushion thud
-      } else if (p < 0.65) {
-        soundTriggersRef.current.body = false;
-      }
-
-      if (p >= 0.80 && !soundTriggersRef.current.pillows) {
-        soundTriggersRef.current.pillows = true;
-        soundEngine.playWoodTap(1.0, 0.18);
-      } else if (p < 0.80) {
-        soundTriggersRef.current.pillows = false;
-      }
-
-      if (p >= 0.85 && !soundTriggersRef.current.complete) {
-        soundTriggersRef.current.complete = true;
-        soundEngine.playAssemblyComplete();
-        setIsFullyAssembled(true);
-      } else if (p < 0.85) {
-        soundTriggersRef.current.complete = false;
-        setIsFullyAssembled(false);
-      }
-
-      if (shadowPlaneRef.current) {
-        const shadowMat = shadowPlaneRef.current.material as THREE.MeshBasicMaterial;
-        shadowMat.opacity = 0.10 + p * 0.48;
-        shadowPlaneRef.current.scale.set(0.7 + p * 0.4, 0.7 + p * 0.4, 1);
-      }
-    };
-
-    // 7. GSAP ScrollTrigger Integration
-    const scrollTrigger = ScrollTrigger.create({
+    // 7. GSAP ScrollTrigger Animation (0.0 -> 1.0 Assembly Progression)
+    const st = ScrollTrigger.create({
       trigger: container,
       start: 'top top',
       end: 'bottom bottom',
-      scrub: 1.2,
+      scrub: 0.5,
       onUpdate: (self) => {
-        handleScrollProgress(self.progress);
+        const p = self.progress;
+        setProgress(p);
+
+        // Interpolate every sofa component
+        partsRef.current.forEach((part) => {
+          const localT = Math.max(
+            0,
+            Math.min(1, (p - part.startProgress) / (part.endProgress - part.startProgress))
+          );
+          // Smooth cubic easeInOut
+          const easeT =
+            localT < 0.5 ? 4 * localT * localT * localT : 1 - Math.pow(-2 * localT + 2, 3) / 2;
+
+          part.mesh.position.lerpVectors(part.startPos, part.endPos, easeT);
+
+          part.mesh.rotation.x = THREE.MathUtils.lerp(part.startRot.x, part.endRot.x, easeT);
+          part.mesh.rotation.y = THREE.MathUtils.lerp(part.startRot.y, part.endRot.y, easeT);
+          part.mesh.rotation.z = THREE.MathUtils.lerp(part.startRot.z, part.endRot.z, easeT);
+        });
+
+        // Contact shadow strengthens realistically as sofa assembles
+        if (shadowPlaneRef.current) {
+          (shadowPlaneRef.current.material as THREE.MeshBasicMaterial).opacity =
+            THREE.MathUtils.lerp(0.18, 0.65, Math.min(1, p * 1.2));
+        }
+
+        // Tactile sound feedback on joinery milestones
+        if (p > 0.22 && !soundTriggersRef.current.chassis) {
+          soundEngine.playWoodTap(0.75, 0.20);
+          soundTriggersRef.current.chassis = true;
+        }
+        if (p > 0.35 && !soundTriggersRef.current.legs) {
+          soundEngine.playBrassLock(0.14);
+          soundTriggersRef.current.legs = true;
+        }
+        if (p > 0.45 && !soundTriggersRef.current.deck) {
+          soundEngine.playWoodTap(0.9, 0.18);
+          soundTriggersRef.current.deck = true;
+        }
+        if (p > 0.60 && !soundTriggersRef.current.arms) {
+          soundEngine.playWoodTap(0.8, 0.22);
+          soundTriggersRef.current.arms = true;
+        }
+        if (p > 0.72 && !soundTriggersRef.current.cushions) {
+          soundEngine.playWoodTap(1.1, 0.16);
+          soundTriggersRef.current.cushions = true;
+        }
+        if (p > 0.85 && !soundTriggersRef.current.complete) {
+          soundEngine.playAssemblyComplete();
+          soundTriggersRef.current.complete = true;
+          setIsFullyAssembled(true);
+        } else if (p < 0.80) {
+          soundTriggersRef.current.complete = false;
+          setIsFullyAssembled(false);
+        }
       },
     });
 
-    // Native scroll calculation fallback (100% reliable across all environments)
-    const onNativeScroll = () => {
-      if (!container) return;
-      const maxScroll = Math.max(1, container.scrollHeight - window.innerHeight);
-      const currentScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-      const directP = Math.max(0, Math.min(1, currentScroll / maxScroll));
-      handleScrollProgress(directP);
+    // 8. Flawless 360° Turntable Drag Interaction
+    const handlePointerDown = (e: PointerEvent) => {
+      isPointerDown.current = true;
+      setIsDragging(true);
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      dragRotation.current.vx = 0;
+      dragRotation.current.vy = 0;
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch (err) {}
     };
 
-    window.addEventListener('scroll', onNativeScroll, { passive: true });
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isPointerDown.current) return;
+      const dx = e.clientX - lastMousePos.current.x;
+      const dy = e.clientY - lastMousePos.current.y;
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
 
-    // Refresh trigger after mount
-    requestAnimationFrame(() => {
-      lenis?.resize();
-      ScrollTrigger.refresh();
-      onNativeScroll();
-    });
-    const resizeTimer = setTimeout(() => {
-      lenis?.resize();
-      ScrollTrigger.refresh();
-      onNativeScroll();
-    }, 250);
+      dragRotation.current.vx = dx * 0.0065;
+      dragRotation.current.vy = dy * 0.0040;
 
-    // Dynamic transform calculation for floating in air and assembly on scroll
-    const updatePartsTransformation = (prog: number, time: number) => {
-      // Assembly happens from progress 0.0 to 0.84
-      const assemblyP = Math.min(1, prog / 0.84);
-
-      partsRef.current.forEach((part) => {
-        const localP = THREE.MathUtils.clamp(
-          (assemblyP - part.startProgress) / (part.endProgress - part.startProgress),
-          0,
-          1
-        );
-        const eased = gsap.parseEase('power2.out')(localP);
-
-        // Breathing floating motion while mid-air (strongest at start, settling as assembled)
-        const hoverIntensity = (1 - localP) * 0.025;
-        const hoverY = Math.sin(time * 1.5 + part.noiseOffset) * hoverIntensity;
-        const hoverX = Math.cos(time * 1.2 + part.noiseOffset) * (hoverIntensity * 0.3);
-        const hoverRot = Math.sin(time * 1.4 + part.noiseOffset) * (hoverIntensity * 0.4);
-
-        part.mesh.position.x =
-          THREE.MathUtils.lerp(part.startPos.x, part.endPos.x, eased) + hoverX;
-        part.mesh.position.y =
-          THREE.MathUtils.lerp(part.startPos.y, part.endPos.y, eased) + hoverY;
-        part.mesh.position.z = THREE.MathUtils.lerp(part.startPos.z, part.endPos.z, eased);
-
-        part.mesh.rotation.x =
-          THREE.MathUtils.lerp(part.startRot.x, part.endRot.x, eased) + hoverRot;
-        part.mesh.rotation.y =
-          THREE.MathUtils.lerp(part.startRot.y, part.endRot.y, eased) + hoverRot * 0.5;
-        part.mesh.rotation.z =
-          THREE.MathUtils.lerp(part.startRot.z, part.endRot.z, eased) + hoverRot * 0.7;
-      });
+      dragRotation.current.currentY += dragRotation.current.vx;
+      dragRotation.current.currentX = Math.max(
+        -0.25,
+        Math.min(0.40, dragRotation.current.currentX + dragRotation.current.vy)
+      );
     };
 
-    // 8. Render Loop with Inertia Turntable & Zero-Gravity Float
-    let frameId: number;
+    const handlePointerUp = (e: PointerEvent) => {
+      isPointerDown.current = false;
+      setIsDragging(false);
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (err) {}
+    };
+
+    // Attach pointer events directly to canvas for rock-solid 360° dragging
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    // 9. Render & Animation Loop
+    let animId: number;
     const clock = new THREE.Clock();
 
-    const render = () => {
-      const time = clock.getElapsedTime();
+    const animate = () => {
+      animId = requestAnimationFrame(animate);
+      const elapsedTime = clock.getElapsedTime();
 
-      // Read real-time progress
-      let currentProgress = scrollTrigger && scrollTrigger.progress !== undefined ? scrollTrigger.progress : 0;
-      if (container) {
-        const maxScroll = Math.max(1, container.scrollHeight - window.innerHeight);
-        const currentScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-        const directP = Math.max(0, Math.min(1, currentScroll / maxScroll));
-        if (Math.abs(directP - currentProgress) > 0.02) {
-          currentProgress = directP;
+      if (sofaGroupRef.current) {
+        if (!isFullyAssembled) {
+          // Gentle zero-gravity breathing when in air (p < 0.85)
+          const breath = Math.sin(elapsedTime * 1.4) * 0.015;
+          const slowTilt = Math.cos(elapsedTime * 0.9) * 0.01;
+          
+          if (!isPointerDown.current) {
+            dragRotation.current.currentY = BASE_ROT_Y + slowTilt;
+            dragRotation.current.currentX = BASE_ROT_X + breath;
+          } else {
+            dragRotation.current.vx *= 0.92;
+            dragRotation.current.vy *= 0.92;
+            dragRotation.current.currentY += dragRotation.current.vx;
+            dragRotation.current.currentX += dragRotation.current.vy;
+          }
+
+          sofaGroupRef.current.rotation.y = dragRotation.current.currentY;
+          sofaGroupRef.current.rotation.x = dragRotation.current.currentX;
+
+          // Gentle ambient float for suspended pieces
+          const p = progress;
+          if (p < 0.85) {
+            partsRef.current.forEach((part) => {
+              const floatOffset = Math.sin(elapsedTime * 1.6 + part.noiseOffset) * 0.012 * (1 - p);
+              part.mesh.position.y += floatOffset * 0.06;
+            });
+          }
+        } else {
+          // Assembled turntable drag with smooth inertia coasting
+          if (!isPointerDown.current) {
+            dragRotation.current.vx *= 0.93;
+            dragRotation.current.vy *= 0.93;
+            dragRotation.current.currentY += dragRotation.current.vx;
+            dragRotation.current.currentX += dragRotation.current.vy;
+          }
+          sofaGroupRef.current.rotation.y = dragRotation.current.currentY;
+          sofaGroupRef.current.rotation.x = dragRotation.current.currentX;
         }
-      }
-
-      // Animate parts
-      updatePartsTransformation(currentProgress, time);
-
-      // Handle sofa orientation:
-      // When assembled (progress >= 0.85), turntable drag or gentle ambient drift
-      // When assembling / floating in air, hold heroic front-facing three-quarter angle
-      if (currentProgress >= 0.85) {
-        if (!isPointerDown.current) {
-          // Slow ambient idle drift
-          dragRotation.current.currentY += 0.0015;
-          // Apply residual drag velocity with smooth friction
-          dragRotation.current.currentY += dragRotation.current.vx;
-          dragRotation.current.currentX += dragRotation.current.vy;
-          dragRotation.current.vx *= 0.92;
-          dragRotation.current.vy *= 0.92;
-        }
-        sofaGroup.rotation.y = dragRotation.current.currentY;
-        sofaGroup.rotation.x = Math.max(-0.25, Math.min(0.35, dragRotation.current.currentX));
-      } else {
-        // Controlled front 3/4 perspective: front of the sofa ALWAYS faces the viewer!
-        const targetRotY = THREE.MathUtils.lerp(BASE_ROT_Y - 0.08, BASE_ROT_Y, currentProgress);
-        const targetRotX = THREE.MathUtils.lerp(BASE_ROT_X + 0.04, BASE_ROT_X, currentProgress);
-        sofaGroup.rotation.y = THREE.MathUtils.lerp(sofaGroup.rotation.y, targetRotY, 0.08);
-        sofaGroup.rotation.x = THREE.MathUtils.lerp(sofaGroup.rotation.x, targetRotX, 0.08);
-        dragRotation.current.currentY = targetRotY;
-        dragRotation.current.currentX = targetRotX;
       }
 
       renderer.render(scene, camera);
-      frameId = requestAnimationFrame(render);
     };
 
-    frameId = requestAnimationFrame(render);
+    animate();
 
-    // 9. Resize Handler
+    // 10. Resize Handler
     const handleResize = () => {
-      if (!canvas || !renderer || !camera) return;
+      if (!canvas || !renderer) return;
       updateCameraDistance();
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      lenis?.resize();
-      ScrollTrigger.refresh();
-      onNativeScroll();
     };
 
     window.addEventListener('resize', handleResize);
 
     return () => {
-      clearTimeout(resizeTimer);
-      cancelAnimationFrame(frameId);
+      cancelAnimationFrame(animId);
+      cancelAnimationFrame(rafId);
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', onNativeScroll);
-      if (updateLenis) gsap.ticker.remove(updateLenis);
-      lenis?.destroy();
-      scrollTrigger.kill();
+      canvas.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      st.kill();
+      lenis.destroy();
       renderer.dispose();
-      partsRef.current.forEach((p) => {
-        p.mesh.traverse((c) => {
-          if (c instanceof THREE.Mesh) {
-            c.geometry.dispose();
-            if (Array.isArray(c.material)) {
-              c.material.forEach((m) => m.dispose());
-            } else if (c.material) {
-              c.material.dispose();
-            }
-          }
-        });
-      });
     };
-  }, [BASE_ROT_X, BASE_ROT_Y]);
-
-  // Pointer Drag Handlers for 360 Turntable
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (!soundEngine.enabled) soundEngine.enabled = true;
-    if (!isFullyAssembled || e.button !== 0) return;
-    isPointerDown.current = true;
-    setIsDragging(true);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isPointerDown.current || !isFullyAssembled) return;
-    const dx = e.clientX - lastMousePos.current.x;
-    const dy = e.clientY - lastMousePos.current.y;
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-
-    if (e.pointerType === 'touch') {
-      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-        dragRotation.current.vx = dx * 0.008;
-      }
-    } else {
-      dragRotation.current.vx = dx * 0.008;
-      dragRotation.current.vy = dy * 0.006;
-      dragRotation.current.currentY += dx * 0.008;
-      dragRotation.current.currentX += dy * 0.006;
-    }
-  };
-
-  const handlePointerUp = () => {
-    isPointerDown.current = false;
-    setIsDragging(false);
-  };
-
-  // Coming Soon text calculation: emerges gracefully once sofa finishes assembly (progress >= 0.82)
-  const comingSoonOpacity = Math.max(0, Math.min(1, (progress - 0.82) / 0.14));
-  const comingSoonY = (1 - comingSoonOpacity) * 24;
+  }, []);
 
   return (
     <div
       ref={containerRef}
       style={{
-        height: '520vh',
         position: 'relative',
+        width: '100%',
+        height: '420vh', // Generous scroll track for smooth assembly
+        backgroundColor: '#F4EBDD',
       }}
     >
-      {/* Fixed Sticky Full-Screen Viewport */}
+      {/* Sticky 100vh Viewport */}
       <div
         style={{
           position: 'sticky',
@@ -1029,92 +908,141 @@ export const SofaScene: React.FC = () => {
           width: '100%',
           height: '100vh',
           overflow: 'hidden',
-          backgroundColor: '#F4EBDD',
-          userSelect: 'none',
-          touchAction: 'pan-y',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        {/* 1. TOP-LEFT CORNER: JODO LOGO */}
+        {/* Top Header / Branding & COMING SOON Banner */}
         <div
           style={{
             position: 'absolute',
-            top: '24px',
-            left: '28px',
-            zIndex: 100,
-            pointerEvents: 'auto',
-          }}
-        >
-          <img
-            src="/logo-cropped.png"
-            alt="JODO"
-            style={{
-              width: '115px',
-              maxWidth: '28vw',
-              height: 'auto',
-              display: 'block',
-              mixBlendMode: 'multiply',
-              userSelect: 'none',
-            }}
-          />
-        </div>
-
-        {/* 2. COMING SOON EDITORIAL HEADLINE (Emerges upon assembly) */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 'clamp(24px, 5vh, 48px)',
-            left: '50%',
-            transform: `translate(-50%, ${comingSoonY}px)`,
+            top: 0,
+            left: 0,
             width: '100%',
-            textAlign: 'center',
-            padding: '0 20px',
-            pointerEvents: 'none',
             zIndex: 40,
-            opacity: comingSoonOpacity,
-            display: comingSoonOpacity > 0.01 ? 'block' : 'none',
-            transition: 'opacity 0.25s ease-out, transform 0.25s ease-out',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            paddingTop: 'clamp(14px, 2.5vh, 24px)',
+            pointerEvents: 'none',
           }}
         >
+          {/* Top Bar: Official JODO Logo & Navigation */}
+          <div
+            style={{
+              width: '92%',
+              maxWidth: '1380px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 'clamp(10px, 1.6vh, 20px)',
+              pointerEvents: 'auto',
+            }}
+          >
+            {/* Official Brand Logo */}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <img
+                src="/jodo-logo.png"
+                alt="JODO - The Joy of Together"
+                style={{
+                  height: 'clamp(36px, 4.4vh, 48px)',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <button
+                type="button"
+                onClick={() => soundEngine.toggle()}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.75)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(142, 134, 126, 0.22)',
+                  borderRadius: '24px',
+                  padding: '6px 14px',
+                  fontSize: '11px',
+                  fontFamily: "'Space Grotesk', monospace",
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: '#24211E',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: '#C65F45',
+                  }}
+                />
+                Audio
+              </button>
+
+              <button
+                type="button"
+                style={{
+                  background: '#24211E',
+                  color: '#F4EBDD',
+                  border: 'none',
+                  borderRadius: '24px',
+                  padding: '7px 18px',
+                  fontSize: '11px',
+                  fontFamily: "'Space Grotesk', monospace",
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Storefront
+              </button>
+            </div>
+          </div>
+
+          {/* Majestic Hero Headline: COMING SOON */}
           <h1
             style={{
-              color: '#C65F45',
               fontFamily: "'Syne', sans-serif",
-              fontWeight: 800,
-              fontSize: 'clamp(2.2rem, 6.8vw, 5.2rem)',
-              letterSpacing: '0.08em',
-              lineHeight: 1.0,
+              fontSize: 'clamp(2.4rem, 6.4vw, 5.8rem)',
+              fontWeight: 900,
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
-              textShadow: '0 4px 24px rgba(198, 95, 69, 0.15)',
+              color: '#C65F45',
+              lineHeight: 0.95,
               margin: 0,
+              textAlign: 'center',
+              userSelect: 'none',
+              transform: 'scaleY(0.92)',
+              textShadow: '0 4px 24px rgba(198, 95, 69, 0.12)',
             }}
           >
             COMING SOON
           </h1>
         </div>
 
-        {/* 3. THE 3D CANVAS: CLEAN ARCHITECTURAL SOFA ASSEMBLES ON SCROLL */}
+        {/* 3D WebGL Canvas with 360° Drag Turntable */}
         <canvas
           ref={canvasRef}
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
             width: '100%',
             height: '100%',
             display: 'block',
-            touchAction: 'pan-y',
-            zIndex: 10,
-            cursor: isDragging ? 'grabbing' : isFullyAssembled ? 'grab' : 'default',
-            pointerEvents: isFullyAssembled ? 'auto' : 'none',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            touchAction: 'none',
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          onPointerCancel={handlePointerUp}
         />
 
-        {/* 4. CENTER BELOW: BRAND TAGLINE + SCROLL INDICATOR */}
+        {/* Bottom Interactive Area */}
         <div
           style={{
             position: 'absolute',
@@ -1167,6 +1095,49 @@ export const SofaScene: React.FC = () => {
                   borderRadius: '2px',
                 }}
               />
+            </div>
+          )}
+
+          {/* Interactive Turntable Drag Indicator */}
+          {isFullyAssembled && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                background: 'rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(12px)',
+                borderRadius: '20px',
+                border: '1px solid rgba(198, 95, 69, 0.25)',
+                marginBottom: '2px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#C65F45"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+              <span
+                style={{
+                  fontFamily: "'Space Grotesk', monospace",
+                  fontSize: '10px',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: '#24211E',
+                  fontWeight: 600,
+                }}
+              >
+                Drag to Rotate 360°
+              </span>
             </div>
           )}
 
