@@ -7,7 +7,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { soundEngine } from '@/audio/woodSound';
-import { getBrassMaterial } from '@/textures/woodTexture';
+import { getWoodMaterial, getBrassMaterial } from '@/textures/woodTexture';
 
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger);
@@ -164,194 +164,586 @@ export const SofaScene: React.FC = () => {
     scene.add(sofaGroup);
     sofaGroupRef.current = sofaGroup;
 
-    // Position sofa in optical center
-    sofaGroup.position.set(0, -0.18, 0);
+    // Position sofa in optical center with generous headline clearance
+    sofaGroup.position.set(0, -0.26, 0);
     sofaGroup.rotation.y = BASE_ROT_Y;
     sofaGroup.rotation.x = BASE_ROT_X;
-    // Scale 1.55 gives a wide 3.4-unit designer presence perfectly framed inside the camera view
-    sofaGroup.scale.setScalar(1.55);
+    // Scale 1.40 gives a majestic 3.1-meter wide designer sofa presence
+    sofaGroup.scale.setScalar(1.40);
 
     // Inner Model Group centered at geometric center
-    // Center of GlamVelvetSofa: x = -0.019, y = 0.394, z = -0.116
     const sofaModelGroup = new THREE.Group();
-    sofaModelGroup.position.set(0.019, -0.394, 0.116);
     sofaGroup.add(sofaModelGroup);
 
-    // 5. Load Authentic Designer 3-Seater Sofa GLB
-    const loader = new GLTFLoader();
-    loader.load(
-      '/models/glam_sofa.glb',
-      (gltf) => {
-        const root = gltf.scene;
-        root.updateMatrixWorld(true);
+    // 5. Materials
+    const woodMat = getWoodMaterial('teak');
+    const brassMat = getBrassMaterial();
 
-        // Find primary meshes
-        let legsMesh: THREE.Mesh | null = null;
-        let fabricMesh: THREE.Mesh | null = null;
-        let feetMesh: THREE.Mesh | null = null;
-
-        root.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.name === 'GlamVelvetSofa_legs') legsMesh = child;
-            if (child.name === 'GlamVelvetSofa_fabric') fabricMesh = child;
-            if (child.name === 'GlamVelvetSofa_feet') feetMesh = child;
-          }
-        });
-
-        if (!fabricMesh) return;
-
-        // Signature JODO Terracotta cushion upholstery material
-        const terracottaFabricMat = ((fabricMesh as THREE.Mesh).material as THREE.Material).clone();
-        if ('color' in terracottaFabricMat) {
-          (terracottaFabricMat as THREE.MeshPhysicalMaterial).color = new THREE.Color('#C65F45');
+    // Signature JODO Terracotta woven upholstery texture
+    const fabricCanvas = document.createElement('canvas');
+    fabricCanvas.width = 512;
+    fabricCanvas.height = 512;
+    const fCtx = fabricCanvas.getContext('2d');
+    if (fCtx) {
+      fCtx.fillStyle = '#C65F45'; // Signature JODO Terracotta
+      fCtx.fillRect(0, 0, 512, 512);
+      for (let x = 0; x < 512; x += 4) {
+        for (let y = 0; y < 512; y += 4) {
+          const isWeft = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 === 0;
+          fCtx.fillStyle = isWeft ? '#BA553D' : '#D26B52';
+          fCtx.fillRect(x, y, 3.5, 3.5);
         }
-        if ('sheenColor' in terracottaFabricMat && (terracottaFabricMat as THREE.MeshPhysicalMaterial).sheenColor) {
-          (terracottaFabricMat as THREE.MeshPhysicalMaterial).sheenColor = new THREE.Color('#D87A63');
-        }
-        if ('specularColor' in terracottaFabricMat && (terracottaFabricMat as THREE.MeshPhysicalMaterial).specularColor) {
-          (terracottaFabricMat as THREE.MeshPhysicalMaterial).specularColor = new THREE.Color('#E59A85');
-        }
-        (terracottaFabricMat as THREE.MeshPhysicalMaterial).roughness = 0.72;
-
-        (fabricMesh as THREE.Mesh).material = terracottaFabricMat;
-
-        const parts: ComponentPart[] = [];
-
-        // Helper: Create soft, rounded accent throw pillow in matching terracotta
-        const createPillow = (): THREE.Mesh => {
-          const shape = new THREE.Shape();
-          const w = 0.20, h = 0.20, r = 0.06;
-          shape.moveTo(-w + r, -h);
-          shape.lineTo(w - r, -h);
-          shape.quadraticCurveTo(w, -h, w, -h + r);
-          shape.lineTo(w, h - r);
-          shape.quadraticCurveTo(w, h, w - r, h);
-          shape.lineTo(-w + r, h);
-          shape.quadraticCurveTo(-w, h, -w, h - r);
-          shape.lineTo(-w, -h + r);
-          shape.quadraticCurveTo(-w, -h, -w + r, -h);
-
-          const geo = new THREE.ExtrudeGeometry(shape, {
-            depth: 0.10,
-            bevelEnabled: true,
-            bevelSegments: 5,
-            steps: 1,
-            bevelSize: 0.05,
-            bevelThickness: 0.05,
-          });
-          geo.center();
-          const mesh = new THREE.Mesh(geo, terracottaFabricMat);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          return mesh;
-        };
-
-        // 1. Architectural Leg Chassis Part (Hovers cleanly below the sofa body)
-        if (legsMesh) {
-          const legsWrapper = new THREE.Group();
-          legsWrapper.add(legsMesh);
-          sofaModelGroup.add(legsWrapper);
-
-          parts.push({
-            mesh: legsWrapper,
-            name: 'Architectural Frame & Splayed Legs',
-            startPos: new THREE.Vector3(0, -0.22, 0.0),
-            endPos: new THREE.Vector3(0, 0, 0),
-            startRot: new THREE.Euler(0.05, -0.02, 0.02),
-            endRot: new THREE.Euler(0, 0, 0),
-            startProgress: 0.0,
-            endProgress: 0.36,
-            noiseOffset: 0.2,
-          });
-        }
-
-        // 2. Brass Feet Caps Part (Hovers cleanly just below the leg tips)
-        if (feetMesh) {
-          const feetWrapper = new THREE.Group();
-          feetWrapper.add(feetMesh);
-          sofaModelGroup.add(feetWrapper);
-
-          parts.push({
-            mesh: feetWrapper,
-            name: 'Solid Brass Ferrule Glides',
-            startPos: new THREE.Vector3(0, -0.38, 0.01),
-            endPos: new THREE.Vector3(0, 0, 0),
-            startRot: new THREE.Euler(0.08, 0.04, 0),
-            endRot: new THREE.Euler(0, 0, 0),
-            startProgress: 0.08,
-            endProgress: 0.42,
-            noiseOffset: 0.5,
-          });
-        }
-
-        // 3. Complete Sculpted Terracotta Sofa Body (Floats as a whole, gorgeous luxury piece in mid-air)
-        const bodyWrapper = new THREE.Group();
-        bodyWrapper.add(fabricMesh);
-        sofaModelGroup.add(bodyWrapper);
-
-        parts.push({
-          mesh: bodyWrapper,
-          name: 'Sculpted Terracotta Sofa Body & Cushions',
-          startPos: new THREE.Vector3(0, 0.38, 0.06),
-          endPos: new THREE.Vector3(0, 0, 0),
-          startRot: new THREE.Euler(-0.06, 0, 0),
-          endRot: new THREE.Euler(0, 0, 0),
-          startProgress: 0.20,
-          endProgress: 0.70,
-          noiseOffset: 1.0,
-        });
-
-        // 4. Left Luxury Corner Throw Pillow (Floating in air above the left arm, nestling into place)
-        const leftPillow = createPillow();
-        const leftPillowWrapper = new THREE.Group();
-        leftPillowWrapper.add(leftPillow);
-        sofaModelGroup.add(leftPillowWrapper);
-
-        parts.push({
-          mesh: leftPillowWrapper,
-          name: 'Left Corner Accent Pillow',
-          startPos: new THREE.Vector3(-0.85, 0.76, 0.22),
-          endPos: new THREE.Vector3(-0.72, 0.45, 0.08),
-          startRot: new THREE.Euler(0.35, 0.55, -0.2),
-          endRot: new THREE.Euler(0.12, 0.40, -0.15),
-          startProgress: 0.45,
-          endProgress: 0.82,
-          noiseOffset: 1.6,
-        });
-
-        // 5. Right Luxury Corner Throw Pillow (Floating in air above the right arm, nestling into place)
-        const rightPillow = createPillow();
-        const rightPillowWrapper = new THREE.Group();
-        rightPillowWrapper.add(rightPillow);
-        sofaModelGroup.add(rightPillowWrapper);
-
-        parts.push({
-          mesh: rightPillowWrapper,
-          name: 'Right Corner Accent Pillow',
-          startPos: new THREE.Vector3(0.85, 0.76, 0.22),
-          endPos: new THREE.Vector3(0.72, 0.45, 0.08),
-          startRot: new THREE.Euler(0.35, -0.55, 0.2),
-          endRot: new THREE.Euler(0.12, -0.40, 0.15),
-          startProgress: 0.48,
-          endProgress: 0.84,
-          noiseOffset: 2.1,
-        });
-
-        // Immediately position every part at its air-suspended start position so the page loads with the exploded view
-        parts.forEach((p) => {
-          p.mesh.position.copy(p.startPos);
-          p.mesh.rotation.copy(p.startRot);
-        });
-
-        partsRef.current = parts;
-      },
-      undefined,
-      (err) => {
-        console.error('Failed to load 3D designer sofa:', err);
       }
-    );
+    }
+    const fabricTex = new THREE.CanvasTexture(fabricCanvas);
+    fabricTex.wrapS = THREE.RepeatWrapping;
+    fabricTex.wrapT = THREE.RepeatWrapping;
+    fabricTex.repeat.set(6, 6);
+
+    const terracottaCushionMat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#C65F45'),
+      map: fabricTex,
+      roughness: 0.72,
+      metalness: 0.04,
+      sheen: 0.95,
+      sheenColor: new THREE.Color('#E27D65'),
+      sheenRoughness: 0.45,
+    });
+
+    const pillowMat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#CE6A52'),
+      map: fabricTex,
+      roughness: 0.65,
+      metalness: 0.04,
+      sheen: 1.0,
+      sheenColor: new THREE.Color('#F0937A'),
+      sheenRoughness: 0.40,
+    });
+
+    // Helper: Create a plush rounded upholstered cushion with rounded bevels and optional center tufting
+    const createPlushCushion = (
+      w: number,
+      d: number,
+      h: number,
+      r: number,
+      mat: THREE.Material,
+      hasTufting = true
+    ): THREE.Group => {
+      const group = new THREE.Group();
+
+      const shape = new THREE.Shape();
+      shape.moveTo(-w / 2 + r, -d / 2);
+      shape.lineTo(w / 2 - r, -d / 2);
+      shape.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
+      shape.lineTo(w / 2, d / 2 - r);
+      shape.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2);
+      shape.lineTo(-w / 2 + r, d / 2);
+      shape.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r);
+      shape.lineTo(-w / 2, -d / 2 + r);
+      shape.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
+
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: h,
+        bevelEnabled: true,
+        bevelSegments: 5,
+        steps: 1,
+        bevelSize: 0.042,
+        bevelThickness: 0.042,
+      });
+      geo.center();
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+
+      // Subtle tufting buttons for high-end tailoring
+      if (hasTufting) {
+        const buttonGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.01, 16);
+        const buttonMat = new THREE.MeshStandardMaterial({
+          color: '#A23F28',
+          roughness: 0.5,
+        });
+        [-w * 0.22, w * 0.22].forEach((bx) => {
+          const btnTop = new THREE.Mesh(buttonGeo, buttonMat);
+          btnTop.position.set(bx, 0, h / 2 + 0.04);
+          btnTop.rotation.x = Math.PI / 2;
+          group.add(btnTop);
+        });
+      }
+
+      return group;
+    };
+
+    // Helper: Turned tapered leg with gleaming brushed brass ferrule
+    const createLegWithBrass = (length: number, topR: number, botR: number): THREE.Group => {
+      const group = new THREE.Group();
+      const ferruleH = 0.052;
+      const woodH = length - ferruleH;
+      const midR = botR + (topR - botR) * (ferruleH / length);
+
+      const woodGeo = new THREE.CylinderGeometry(topR, midR, woodH, 24);
+      woodGeo.translate(0, ferruleH / 2, 0);
+      const woodMesh = new THREE.Mesh(woodGeo, woodMat);
+      woodMesh.castShadow = true;
+      woodMesh.receiveShadow = true;
+      group.add(woodMesh);
+
+      const brassGeo = new THREE.CylinderGeometry(midR * 1.02, botR, ferruleH, 24);
+      brassGeo.translate(0, -woodH / 2, 0);
+      const brassMesh = new THREE.Mesh(brassGeo, brassMat);
+      brassMesh.castShadow = true;
+      group.add(brassMesh);
+
+      return group;
+    };
+
+    // Helper: Brass joinery pin
+    const createBrassPin = (): THREE.Mesh => {
+      const geo = new THREE.CylinderGeometry(0.013, 0.013, 0.08, 16);
+      const mesh = new THREE.Mesh(geo, brassMat);
+      mesh.castShadow = true;
+      return mesh;
+    };
+
+    const parts: ComponentPart[] = [];
+
+    // ─────────────────────────────────────────────────────────────
+    // PART 1: CHASSIS & SPLAYED LEGS (Ground Platform)
+    // ─────────────────────────────────────────────────────────────
+    const chassisGroup = new THREE.Group();
+    sofaModelGroup.add(chassisGroup);
+
+    // Front & rear rails
+    const frontRailGeo = new THREE.BoxGeometry(2.26, 0.058, 0.055);
+    const frontRail = new THREE.Mesh(frontRailGeo, woodMat);
+    frontRail.position.set(0, -0.04, 0.36);
+    frontRail.castShadow = true;
+    frontRail.receiveShadow = true;
+    chassisGroup.add(frontRail);
+
+    const rearRailGeo = new THREE.BoxGeometry(2.26, 0.058, 0.055);
+    const rearRail = new THREE.Mesh(rearRailGeo, woodMat);
+    rearRail.position.set(0, -0.04, -0.36);
+    rearRail.castShadow = true;
+    rearRail.receiveShadow = true;
+    chassisGroup.add(rearRail);
+
+    // Left, center, and right stretchers
+    const crossRailGeo = new THREE.BoxGeometry(0.055, 0.058, 0.67);
+    [-1.10, 0, 1.10].forEach((x) => {
+      const cross = new THREE.Mesh(crossRailGeo, woodMat);
+      cross.position.set(x, -0.04, 0);
+      cross.castShadow = true;
+      cross.receiveShadow = true;
+      chassisGroup.add(cross);
+    });
+
+    // 10 solid wood seat deck slats
+    const slatGeo = new THREE.BoxGeometry(0.052, 0.018, 0.67);
+    for (let i = 0; i < 10; i++) {
+      const sx = -0.92 + i * 0.205;
+      const slat = new THREE.Mesh(slatGeo, woodMat);
+      slat.position.set(sx, -0.01, 0);
+      slat.castShadow = true;
+      slat.receiveShadow = true;
+      chassisGroup.add(slat);
+    }
+
+    // 4 Splayed Turned Legs with Solid Brass Ferrules
+    const legLength = 0.28;
+    const legTopR = 0.038;
+    const legBotR = 0.024;
+
+    const flLeg = createLegWithBrass(legLength, legTopR, legBotR);
+    flLeg.position.set(-1.02, -0.19, 0.30);
+    flLeg.rotation.set(0.06, 0, 0.08);
+    chassisGroup.add(flLeg);
+
+    const frLeg = createLegWithBrass(legLength, legTopR, legBotR);
+    frLeg.position.set(1.02, -0.19, 0.30);
+    frLeg.rotation.set(0.06, 0, -0.08);
+    chassisGroup.add(frLeg);
+
+    const rlLeg = createLegWithBrass(legLength, legTopR, legBotR);
+    rlLeg.position.set(-1.02, -0.19, -0.30);
+    rlLeg.rotation.set(-0.08, 0, 0.08);
+    chassisGroup.add(rlLeg);
+
+    const rrLeg = createLegWithBrass(legLength, legTopR, legBotR);
+    rrLeg.position.set(1.02, -0.19, -0.30);
+    rrLeg.rotation.set(-0.08, 0, -0.08);
+    chassisGroup.add(rrLeg);
+
+    // 2 Center support legs for authentic furniture engineering
+    const clLeg = createLegWithBrass(legLength, 0.032, 0.022);
+    clLeg.position.set(0, -0.19, 0.30);
+    clLeg.rotation.set(0.04, 0, 0);
+    chassisGroup.add(clLeg);
+
+    const crLeg = createLegWithBrass(legLength, 0.032, 0.022);
+    crLeg.position.set(0, -0.19, -0.30);
+    crLeg.rotation.set(-0.04, 0, 0);
+    chassisGroup.add(crLeg);
+
+    parts.push({
+      mesh: chassisGroup,
+      name: 'Solid Teak Chassis & Turned Legs',
+      startPos: new THREE.Vector3(0, -0.22, 0.0),
+      endPos: new THREE.Vector3(0, 0, 0),
+      startRot: new THREE.Euler(0.04, -0.02, 0.01),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.0,
+      endProgress: 0.28,
+      noiseOffset: 0.2,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PART 2: LEFT SCULPTURAL BENTWOOD ARMREST
+    // ─────────────────────────────────────────────────────────────
+    const leftArmGroup = new THREE.Group();
+    sofaModelGroup.add(leftArmGroup);
+
+    // Front post
+    const leftFrontPostGeo = new THREE.CylinderGeometry(0.036, 0.034, 0.48, 24);
+    const leftFrontPost = new THREE.Mesh(leftFrontPostGeo, woodMat);
+    leftFrontPost.position.set(-1.12, 0.20, 0.36);
+    leftFrontPost.castShadow = true;
+    leftArmGroup.add(leftFrontPost);
+
+    // Rear post
+    const leftRearPostGeo = new THREE.CylinderGeometry(0.038, 0.036, 0.58, 24);
+    const leftRearPost = new THREE.Mesh(leftRearPostGeo, woodMat);
+    leftRearPost.position.set(-1.12, 0.25, -0.36);
+    leftRearPost.castShadow = true;
+    leftArmGroup.add(leftRearPost);
+
+    // Silky curved arm rail with bullnose rounded contour
+    const armShape = new THREE.Shape();
+    armShape.moveTo(-0.032, -0.38);
+    armShape.lineTo(0.032, -0.38);
+    armShape.lineTo(0.032, 0.38);
+    armShape.quadraticCurveTo(0.032, 0.42, 0, 0.42);
+    armShape.quadraticCurveTo(-0.032, 0.42, -0.032, 0.38);
+    armShape.lineTo(-0.032, -0.38);
+
+    const armExtrudeSettings = {
+      depth: 0.045,
+      bevelEnabled: true,
+      bevelSegments: 4,
+      bevelSize: 0.016,
+      bevelThickness: 0.016,
+    };
+    const armGeo = new THREE.ExtrudeGeometry(armShape, armExtrudeSettings);
+    armGeo.center();
+    const leftArmRail = new THREE.Mesh(armGeo, woodMat);
+    leftArmRail.rotation.x = Math.PI / 2;
+    leftArmRail.position.set(-1.12, 0.45, 0.01);
+    leftArmRail.castShadow = true;
+    leftArmGroup.add(leftArmRail);
+
+    parts.push({
+      mesh: leftArmGroup,
+      name: 'Left Sculptural Bentwood Armrest',
+      startPos: new THREE.Vector3(-0.45, 0.22, 0.06),
+      endPos: new THREE.Vector3(0, 0, 0),
+      startRot: new THREE.Euler(0.06, 0.12, -0.10),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.16,
+      endProgress: 0.44,
+      noiseOffset: 0.5,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PART 3: RIGHT SCULPTURAL BENTWOOD ARMREST
+    // ─────────────────────────────────────────────────────────────
+    const rightArmGroup = new THREE.Group();
+    sofaModelGroup.add(rightArmGroup);
+
+    const rightFrontPost = new THREE.Mesh(leftFrontPostGeo, woodMat);
+    rightFrontPost.position.set(1.12, 0.20, 0.36);
+    rightFrontPost.castShadow = true;
+    rightArmGroup.add(rightFrontPost);
+
+    const rightRearPost = new THREE.Mesh(leftRearPostGeo, woodMat);
+    rightRearPost.position.set(1.12, 0.25, -0.36);
+    rightRearPost.castShadow = true;
+    rightArmGroup.add(rightRearPost);
+
+    const rightArmRail = new THREE.Mesh(armGeo, woodMat);
+    rightArmRail.rotation.x = Math.PI / 2;
+    rightArmRail.position.set(1.12, 0.45, 0.01);
+    rightArmRail.castShadow = true;
+    rightArmGroup.add(rightArmRail);
+
+    parts.push({
+      mesh: rightArmGroup,
+      name: 'Right Sculptural Bentwood Armrest',
+      startPos: new THREE.Vector3(0.45, 0.22, 0.06),
+      endPos: new THREE.Vector3(0, 0, 0),
+      startRot: new THREE.Euler(0.06, -0.12, 0.10),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.18,
+      endProgress: 0.46,
+      noiseOffset: 0.8,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PART 4: ARCHITECTURAL BACKREST FRAME & SPINDLES
+    // ─────────────────────────────────────────────────────────────
+    const backrestGroup = new THREE.Group();
+    sofaModelGroup.add(backrestGroup);
+
+    // Sweeping top crest rail with gentle curve and rounded ends
+    const crestRailGeo = new THREE.BoxGeometry(2.26, 0.055, 0.042);
+    const crestRail = new THREE.Mesh(crestRailGeo, woodMat);
+    crestRail.position.set(0, 0.54, -0.38);
+    crestRail.castShadow = true;
+    backrestGroup.add(crestRail);
+
+    // 16 slender turned vertical wood spindles
+    const spindleGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.54, 16);
+    for (let i = 0; i < 16; i++) {
+      const sx = -1.02 + i * 0.136;
+      const spindle = new THREE.Mesh(spindleGeo, woodMat);
+      spindle.position.set(sx, 0.25, -0.37);
+      spindle.castShadow = true;
+      backrestGroup.add(spindle);
+    }
+
+    // Apply ergonomic 10-degree recline
+    backrestGroup.rotation.x = 0.17;
+    backrestGroup.position.set(0, 0.04, 0.04);
+
+    parts.push({
+      mesh: backrestGroup,
+      name: 'Bentwood Crest Rail & Slatted Spindles',
+      startPos: new THREE.Vector3(0, 0.48, -0.32),
+      endPos: new THREE.Vector3(0, 0.04, 0.04),
+      startRot: new THREE.Euler(0.35, 0, 0),
+      endRot: new THREE.Euler(0.17, 0, 0),
+      startProgress: 0.32,
+      endProgress: 0.58,
+      noiseOffset: 1.2,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PART 5: SOLID BRASS JOINERY PINS (Floating craft fasteners)
+    // ─────────────────────────────────────────────────────────────
+    const brassPinsGroup = new THREE.Group();
+    sofaModelGroup.add(brassPinsGroup);
+
+    // Front arm joinery pins
+    const flPin = createBrassPin();
+    flPin.rotation.z = Math.PI / 2;
+    flPin.position.set(-1.18, 0.42, 0.36);
+    brassPinsGroup.add(flPin);
+
+    const frPin = createBrassPin();
+    frPin.rotation.z = Math.PI / 2;
+    frPin.position.set(1.18, 0.42, 0.36);
+    brassPinsGroup.add(frPin);
+
+    // Rear arm joinery pins
+    const rlPin = createBrassPin();
+    rlPin.rotation.z = Math.PI / 2;
+    rlPin.position.set(-1.18, 0.45, -0.36);
+    brassPinsGroup.add(rlPin);
+
+    const rrPin = createBrassPin();
+    rrPin.rotation.z = Math.PI / 2;
+    rrPin.position.set(1.18, 0.45, -0.36);
+    brassPinsGroup.add(rrPin);
+
+    parts.push({
+      mesh: brassPinsGroup,
+      name: 'Architectural Brushed Brass Joinery Pins',
+      startPos: new THREE.Vector3(0, 0.18, 0.16),
+      endPos: new THREE.Vector3(0, 0, 0),
+      startRot: new THREE.Euler(0.1, 0, 0.05),
+      endRot: new THREE.Euler(0, 0, 0),
+      startProgress: 0.22,
+      endProgress: 0.48,
+      noiseOffset: 1.5,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PARTS 6, 7, 8: THREE PLUSH TERRACOTTA SEAT CUSHIONS
+    // ─────────────────────────────────────────────────────────────
+    const cushionW = 0.70;
+    const cushionD = 0.68;
+    const cushionH = 0.13;
+    const cushionR = 0.07;
+
+    // Left Seat Cushion
+    const leftSeatGroup = createPlushCushion(cushionW, cushionD, cushionH, cushionR, terracottaCushionMat);
+    leftSeatGroup.rotation.x = Math.PI / 2;
+    leftSeatGroup.position.set(-0.73, 0.08, 0.02);
+    sofaModelGroup.add(leftSeatGroup);
+
+    parts.push({
+      mesh: leftSeatGroup,
+      name: 'Left Terracotta Seat Cushion',
+      startPos: new THREE.Vector3(-0.75, 0.48, 0.18),
+      endPos: new THREE.Vector3(-0.73, 0.08, 0.02),
+      startRot: new THREE.Euler(Math.PI / 2 - 0.14, 0.06, -0.04),
+      endRot: new THREE.Euler(Math.PI / 2, 0, 0),
+      startProgress: 0.44,
+      endProgress: 0.70,
+      noiseOffset: 1.8,
+    });
+
+    // Center Seat Cushion
+    const centerSeatGroup = createPlushCushion(cushionW, cushionD, cushionH, cushionR, terracottaCushionMat);
+    centerSeatGroup.rotation.x = Math.PI / 2;
+    centerSeatGroup.position.set(0, 0.08, 0.02);
+    sofaModelGroup.add(centerSeatGroup);
+
+    parts.push({
+      mesh: centerSeatGroup,
+      name: 'Center Terracotta Seat Cushion',
+      startPos: new THREE.Vector3(0, 0.54, 0.22),
+      endPos: new THREE.Vector3(0, 0.08, 0.02),
+      startRot: new THREE.Euler(Math.PI / 2 - 0.16, 0, 0),
+      endRot: new THREE.Euler(Math.PI / 2, 0, 0),
+      startProgress: 0.46,
+      endProgress: 0.72,
+      noiseOffset: 2.1,
+    });
+
+    // Right Seat Cushion
+    const rightSeatGroup = createPlushCushion(cushionW, cushionD, cushionH, cushionR, terracottaCushionMat);
+    rightSeatGroup.rotation.x = Math.PI / 2;
+    rightSeatGroup.position.set(0.73, 0.08, 0.02);
+    sofaModelGroup.add(rightSeatGroup);
+
+    parts.push({
+      mesh: rightSeatGroup,
+      name: 'Right Terracotta Seat Cushion',
+      startPos: new THREE.Vector3(0.75, 0.48, 0.18),
+      endPos: new THREE.Vector3(0.73, 0.08, 0.02),
+      startRot: new THREE.Euler(Math.PI / 2 - 0.14, -0.06, 0.04),
+      endRot: new THREE.Euler(Math.PI / 2, 0, 0),
+      startProgress: 0.48,
+      endProgress: 0.74,
+      noiseOffset: 2.4,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PARTS 9, 10, 11: THREE ERGONOMIC TERRACOTTA BACKREST CUSHIONS
+    // ─────────────────────────────────────────────────────────────
+    const backW = 0.69;
+    const backH = 0.42;
+    const backDepth = 0.12;
+    const backR = 0.06;
+
+    // Left Back Cushion
+    const leftBackGroup = createPlushCushion(backW, backH, backDepth, backR, terracottaCushionMat);
+    leftBackGroup.position.set(-0.73, 0.38, -0.22);
+    leftBackGroup.rotation.x = 0.18;
+    sofaModelGroup.add(leftBackGroup);
+
+    parts.push({
+      mesh: leftBackGroup,
+      name: 'Left Terracotta Backrest Cushion',
+      startPos: new THREE.Vector3(-0.74, 0.82, -0.12),
+      endPos: new THREE.Vector3(-0.73, 0.38, -0.22),
+      startRot: new THREE.Euler(0.38, 0.08, -0.04),
+      endRot: new THREE.Euler(0.18, 0, 0),
+      startProgress: 0.58,
+      endProgress: 0.80,
+      noiseOffset: 2.7,
+    });
+
+    // Center Back Cushion
+    const centerBackGroup = createPlushCushion(backW, backH, backDepth, backR, terracottaCushionMat);
+    centerBackGroup.position.set(0, 0.38, -0.22);
+    centerBackGroup.rotation.x = 0.18;
+    sofaModelGroup.add(centerBackGroup);
+
+    parts.push({
+      mesh: centerBackGroup,
+      name: 'Center Terracotta Backrest Cushion',
+      startPos: new THREE.Vector3(0, 0.88, -0.15),
+      endPos: new THREE.Vector3(0, 0.38, -0.22),
+      startRot: new THREE.Euler(0.40, 0, 0),
+      endRot: new THREE.Euler(0.18, 0, 0),
+      startProgress: 0.60,
+      endProgress: 0.82,
+      noiseOffset: 3.0,
+    });
+
+    // Right Back Cushion
+    const rightBackGroup = createPlushCushion(backW, backH, backDepth, backR, terracottaCushionMat);
+    rightBackGroup.position.set(0.73, 0.38, -0.22);
+    rightBackGroup.rotation.x = 0.18;
+    sofaModelGroup.add(rightBackGroup);
+
+    parts.push({
+      mesh: rightBackGroup,
+      name: 'Right Terracotta Backrest Cushion',
+      startPos: new THREE.Vector3(0.74, 0.82, -0.12),
+      endPos: new THREE.Vector3(0.73, 0.38, -0.22),
+      startRot: new THREE.Euler(0.38, -0.08, 0.04),
+      endRot: new THREE.Euler(0.18, 0, 0),
+      startProgress: 0.62,
+      endProgress: 0.84,
+      noiseOffset: 3.3,
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // PARTS 12 & 13: TWO PLUMP ACCENT THROW PILLOWS
+    // ─────────────────────────────────────────────────────────────
+    const pillowSize = 0.32;
+    const pillowDepth = 0.08;
+
+    // Left Pillow
+    const leftPillowGroup = createPlushCushion(pillowSize, pillowSize, pillowDepth, 0.06, pillowMat, false);
+    leftPillowGroup.position.set(-0.86, 0.22, 0.12);
+    leftPillowGroup.rotation.set(0.14, 0.44, -0.16);
+    sofaModelGroup.add(leftPillowGroup);
+
+    parts.push({
+      mesh: leftPillowGroup,
+      name: 'Left Accent Throw Pillow',
+      startPos: new THREE.Vector3(-1.05, 1.05, 0.18),
+      endPos: new THREE.Vector3(-0.86, 0.22, 0.12),
+      startRot: new THREE.Euler(0.45, 0.65, -0.32),
+      endRot: new THREE.Euler(0.14, 0.44, -0.16),
+      startProgress: 0.70,
+      endProgress: 0.85,
+      noiseOffset: 3.6,
+    });
+
+    // Right Pillow
+    const rightPillowGroup = createPlushCushion(pillowSize, pillowSize, pillowDepth, 0.06, pillowMat, false);
+    rightPillowGroup.position.set(0.86, 0.22, 0.12);
+    rightPillowGroup.rotation.set(0.14, -0.44, 0.16);
+    sofaModelGroup.add(rightPillowGroup);
+
+    parts.push({
+      mesh: rightPillowGroup,
+      name: 'Right Accent Throw Pillow',
+      startPos: new THREE.Vector3(1.05, 1.05, 0.18),
+      endPos: new THREE.Vector3(0.86, 0.22, 0.12),
+      startRot: new THREE.Euler(0.45, -0.65, 0.32),
+      endRot: new THREE.Euler(0.14, -0.44, 0.16),
+      startProgress: 0.72,
+      endProgress: 0.85,
+      noiseOffset: 3.9,
+    });
+
+    // Immediately position every part at its air-suspended start position
+    parts.forEach((p) => {
+      p.mesh.position.copy(p.startPos);
+      p.mesh.rotation.copy(p.startRot);
+    });
+
+    console.log('JODO SOFA ASSEMBLED! Total components:', parts.length);
+    if (typeof window !== 'undefined') {
+      (window as any).__SOFA_SCENE__ = { scene, camera, sofaGroup, parts };
+    }
+
+    partsRef.current = parts;
 
     // 6. Setup Lenis Smooth Scroll
     let lenis: Lenis | null = null;
@@ -670,7 +1062,7 @@ export const SofaScene: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            top: '12%',
+            top: 'clamp(24px, 5vh, 48px)',
             left: '50%',
             transform: `translate(-50%, ${comingSoonY}px)`,
             width: '100%',
@@ -688,7 +1080,7 @@ export const SofaScene: React.FC = () => {
               color: '#C65F45',
               fontFamily: "'Syne', sans-serif",
               fontWeight: 800,
-              fontSize: 'clamp(2.4rem, 8.5vw, 6.5rem)',
+              fontSize: 'clamp(2.2rem, 6.8vw, 5.2rem)',
               letterSpacing: '0.08em',
               lineHeight: 1.0,
               textTransform: 'uppercase',
