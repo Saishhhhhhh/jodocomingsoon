@@ -3,9 +3,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-// Dynamically import ChairScene to prevent server-side WebGL evaluation
-const ChairScene = dynamic(
-  () => import('./ChairScene').then((mod) => mod.ChairScene),
+// Dynamically import SofaScene to prevent server-side WebGL evaluation
+const SofaScene = dynamic(
+  () => import('./SofaScene').then((mod) => mod.SofaScene),
   {
     ssr: false,
     loading: () => (
@@ -14,7 +14,7 @@ const ChairScene = dynamic(
           JODO
         </div>
         <div className="font-mono text-xs uppercase tracking-[0.2em] text-[#8E867E]">
-          Loading 3D Experience...
+          Loading 3D Designer Sofa...
         </div>
       </div>
     ),
@@ -29,7 +29,7 @@ export default function ComingSoonPage() {
 
       {/* Main Single Scroll Assembly & Coming Soon Experience */}
       <main className="relative w-full">
-        <ChairScene />
+        <SofaScene />
       </main>
     </div>
   );
