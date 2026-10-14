@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Model Comparison</title>
+  <style>
+    body { margin: 0; background: #F4EBDD; overflow: hidden; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const modelPath = params.get('m') || '/models/sofa_02/sofa_02.gltf';
+
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#F4EBDD');
+
+    const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0.5, 4.0);
+
+    const amb = new THREE.AmbientLight(0xfff6ec, 1.4);
+    scene.add(amb);
+    const dir = new THREE.DirectionalLight(0xfff5e6, 2.5);
+    dir.position.set(4, 6, 4);
+    scene.add(dir);
+    const fill = new THREE.DirectionalLight(0xddeeff, 1.0);
+    fill.position.set(-4, 3, -2);
+    scene.add(fill);
+
+    const loader = new GLTFLoader();
+    loader.load(modelPath, (gltf) => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 2.2 / maxDim;
+      model.scale.setScalar(scale);
+      model.position.sub(center.clone().multiplyScalar(scale));
+      model.position.y -= size.y * scale * 0.2;
+
+      // Slight 3/4 turn
+      model.rotation.y = -0.3;
+
+      scene.add(model);
+      window.__MODEL_LOADED__ = true;
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

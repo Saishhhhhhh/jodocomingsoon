@@ -46,22 +46,21 @@ export const Navigation: React.FC<NavigationProps> = () => {
     <header
       className={`fixed top-0 left-0 w-full z-50 px-6 md:px-14 py-6 flex items-center justify-between transition-colors duration-500 pointer-events-none ${textColorClass}`}
     >
-      {/* Brand Wordmark */}
+      {/* Brand Logo */}
       <div className="flex items-center gap-3 pointer-events-auto">
         <a
           href="#"
-          className="group flex items-baseline gap-2 text-decoration-none"
+          className="group flex items-center gap-2 text-decoration-none"
           onClick={(e) => {
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
-          <span className="font-serif text-2xl md:text-3xl tracking-[0.22em] font-normal uppercase transition-transform group-hover:scale-105">
-            JODO
-          </span>
-          <span className={`hidden sm:inline-block font-mono text-[9px] tracking-[0.25em] uppercase ${mutedColorClass}`}>
-            · STUDIO
-          </span>
+          <img
+            src="/jodo-logo.png"
+            alt="JODO - The Joy of Together"
+            className="h-8 md:h-10 w-auto object-contain transition-transform group-hover:scale-105"
+          />
         </a>
       </div>
 
