@@ -21,41 +21,49 @@
   <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
     const canvas = document.getElementById('c');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.2;
+    renderer.shadowMap.enabled = true;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#F4EBDD');
 
-    const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.2, 4.5);
-    camera.lookAt(0, 0.3, 0);
+    const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(2.5, 1.2, 4.0);
+    camera.lookAt(0, 0, 0);
 
-    const amb = new THREE.AmbientLight(0xffffff, 1.2);
+    const amb = new THREE.AmbientLight(0xfff6ec, 1.4);
     scene.add(amb);
-    const dir = new THREE.DirectionalLight(0xfff3e3, 2.5);
-    dir.position.set(3, 5, 4);
+    const dir = new THREE.DirectionalLight(0xfff5e6, 2.5);
+    dir.position.set(4, 6, 4);
+    dir.castShadow = true;
     scene.add(dir);
     const fill = new THREE.DirectionalLight(0xddeeff, 1.0);
-    fill.position.set(-3, 2, -2);
+    fill.position.set(-4, 3, -2);
     scene.add(fill);
 
     const loader = new GLTFLoader();
-    loader.load('/models/glam_sofa.glb', (gltf) => {
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load('/models/photorealistic_sofa.glb', (gltf) => {
       const model = gltf.scene;
       
-      // Compute bounding box and center
       const box = new THREE.Box3().setFromObject(model);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
-      console.log('Size:', size, 'Center:', center);
-      model.position.sub(center);
-      model.position.y += size.y / 2;
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 2.4 / maxDim;
+      
+      model.scale.setScalar(scale);
+      model.position.sub(center.clone().multiplyScalar(scale));
 
       scene.add(model);
       window.isReady = true;
