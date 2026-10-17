@@ -57,8 +57,11 @@ export const ComingSoonSection: React.FC = () => {
         </div>
 
         {/* Wordmark & Heading */}
-        <h2 className="font-serif text-5xl sm:text-7xl md:text-8xl font-normal tracking-[0.16em] uppercase text-[#24211E] mb-3">
+        <h2 className="font-serif text-5xl sm:text-7xl md:text-8xl font-normal tracking-[0.16em] uppercase text-[#24211E] mb-3 relative inline-block">
           JODO
+          <span className="text-[#C65F45] font-mono text-xl sm:text-2xl md:text-3xl ml-1 align-top font-bold select-none">
+            TM
+          </span>
         </h2>
         <div className="font-serif italic text-2xl sm:text-4xl text-[#C65F45] font-normal tracking-wide mb-6">
           COMING SOON

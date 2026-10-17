@@ -15,13 +15,16 @@ export const HeroSection: React.FC = () => {
       {/* Main Center Composition with Big COMING SOON in Terracotta */}
       <div className="flex flex-col items-center text-center my-auto px-4">
         {/* Brand Name */}
-        <span className="font-serif text-2xl md:text-4xl tracking-[0.3em] font-normal uppercase text-[#24211E] mb-3">
+        <span className="font-serif text-2xl md:text-4xl tracking-[0.3em] font-normal uppercase text-[#24211E] mb-3 relative inline-block">
           JODO
+          <span className="text-[#C65F45] font-mono text-xs md:text-base ml-1 align-top font-bold select-none">
+            TM
+          </span>
         </span>
 
         {/* Big Heading in Terracotta Color */}
         <h1
-          className="font-serif font-light uppercase tracking-[0.12em] leading-[0.9] text-[#C65F45] select-none"
+          className="font-serif font-light uppercase tracking-[0.12em] leading-[0.9] text-[#C65F45] select-none mt-6 md:mt-10"
           style={{ fontSize: 'clamp(3.5rem, 12.5vw, 10.5rem)' }}
         >
           COMING SOON

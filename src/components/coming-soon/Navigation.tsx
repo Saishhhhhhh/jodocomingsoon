@@ -59,7 +59,7 @@ export const Navigation: React.FC<NavigationProps> = () => {
           <img
             src="/jodo-logo.png"
             alt="JODO - The Joy of Together"
-            className="h-8 md:h-10 w-auto object-contain transition-transform group-hover:scale-105"
+            className="h-11 md:h-14 w-auto object-contain transition-transform group-hover:scale-105"
           />
         </a>
       </div>

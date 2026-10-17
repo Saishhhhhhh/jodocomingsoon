@@ -827,7 +827,7 @@ export const SofaScene: React.FC = () => {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            paddingTop: 'clamp(14px, 2.5vh, 24px)',
+            paddingTop: 'clamp(18px, 3vh, 32px)',
             pointerEvents: 'none',
           }}
         >
@@ -839,20 +839,21 @@ export const SofaScene: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-start',
-              marginBottom: 'clamp(10px, 1.6vh, 20px)',
+              marginBottom: 'clamp(24px, 4vh, 48px)',
               pointerEvents: 'auto',
             }}
           >
-            {/* Official Brand Logo from JODO 1.png */}
+            {/* Official Brand Logo with Terracotta TM */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <img
                 src="/jodo-logo.png"
                 alt="JODO - The Joy of Together"
                 style={{
-                  height: 'clamp(36px, 4.4vh, 48px)',
+                  height: 'clamp(50px, 6.5vh, 70px)',
                   width: 'auto',
                   objectFit: 'contain',
                   display: 'block',
+                  filter: 'drop-shadow(0 2px 8px rgba(36, 33, 30, 0.04))',
                 }}
               />
             </div>
@@ -869,6 +870,7 @@ export const SofaScene: React.FC = () => {
               color: '#C65F45',
               lineHeight: 0.95,
               margin: 0,
+              marginTop: 'clamp(12px, 2vh, 24px)',
               textAlign: 'center',
               userSelect: 'none',
               transform: 'scaleY(0.92)',
